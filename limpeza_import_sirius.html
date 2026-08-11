@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Kaleizu — Limpeza de import (Sirius)</title>
+<style>
+  :root{ --navy:#0D1B2E; --gold:#B8960C; --red:#B3261E; --gray-border:#E4E0D4; --cream:#FBFAF6; }
+  body{ font-family: -apple-system, Segoe UI, Arial, sans-serif; background:var(--cream); color:#222; margin:0; padding:30px; }
+  .wrap{ max-width:920px; margin:0 auto; }
+  h1{ color:var(--navy); font-size:20px; }
+  p.sub{ color:#666; font-size:13px; margin-top:-8px; }
+  .card{ background:#fff; border:1px solid var(--gray-border); border-radius:10px; padding:22px; margin-bottom:18px; }
+  button{ background:var(--navy); color:#fff; border:none; padding:10px 16px; border-radius:7px; font-size:13px; cursor:pointer; }
+  button:hover{ opacity:.9; }
+  button.danger{ background:var(--red); }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+  input[type=text], input[type=datetime-local]{ padding:8px 10px; border-radius:7px; border:1px solid var(--gray-border); font-size:13px; }
+  table{ width:100%; border-collapse:collapse; font-size:12px; margin-top:14px; }
+  th, td{ text-align:left; padding:6px 8px; border-bottom:1px solid var(--gray-border); }
+  th{ background:var(--cream); }
+  .status{ font-size:13px; margin-top:10px; }
+  .warn{ background:#FFF4E5; border:1px solid #F0C36D; padding:12px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
+  #login-screen{ text-align:center; padding:60px 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="login-screen">
+    <h1>Kaleizu — Limpeza de import</h1>
+    <p class="sub">Entre com a mesma conta Google usada no sistema de alunos.</p>
+    <button id="btn-login">Entrar com Google</button>
+    <p id="login-error" style="display:none; color:var(--red); font-size:13px;">Este e-mail não tem acesso ao sistema.</p>
+  </div>
+
+  <div id="app" style="display:none;">
+    <h1>Limpeza de import (relatório Sirius)</h1>
+    <p class="sub">Logado como <span id="user-email"></span> — <a href="#" id="btn-logout">sair</a></p>
+
+    <div class="warn">
+      ⚠ Esta ferramenta identifica alunos <strong>sem o campo "curso" preenchido</strong> — que é obrigatório
+      em qualquer cadastro feito manualmente pelo sistema. Como o CSV do import da Sirius só trazia matrícula
+      e datas, todo aluno <strong>criado</strong> (não atualizado) por engano ficou sem curso. Confira a lista
+      com calma antes de excluir — a ação não pode ser desfeita.
+    </div>
+
+    <div class="card">
+      <div>
+        <label style="font-size:13px; display:block; margin-bottom:6px;">
+          Só considerar quem foi <strong>criado</strong> a partir de (opcional, filtro extra de segurança):
+        </label>
+        <input type="datetime-local" id="cutoff">
+      </div>
+      <div style="margin-top:14px;">
+        <button id="btn-carregar">Carregar candidatos à exclusão</button>
+      </div>
+      <div class="status" id="status-carregar"></div>
+    </div>
+
+    <div class="card" id="card-resultado" style="display:none;">
+      <div id="resumo" style="font-weight:600;"></div>
+      <div style="margin-top:10px;">
+        <button id="btn-exportar" style="background:#555;">⬇ Exportar lista (CSV) antes de excluir</button>
+      </div>
+      <table id="tabela-preview"></table>
+      <div id="mais-linhas" style="font-size:12px; color:#666; margin-top:6px;"></div>
+
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--gray-border);">
+        <label style="font-size:13px; display:block; margin-bottom:6px;">
+          Pra confirmar, digite <strong>EXCLUIR</strong> abaixo:
+        </label>
+        <input type="text" id="confirm-text" placeholder="EXCLUIR">
+        <button class="danger" id="btn-excluir" disabled style="margin-left:8px;">Excluir todos os candidatos</button>
+      </div>
+      <div class="status" id="status-excluir"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, getDoc, getDocs, writeBatch
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyASQBvvsLhIDt0096Ndl1CaAvpFois0RDY",
+    authDomain: "kaleizu-alunos.firebaseapp.com",
+    projectId: "kaleizu-alunos",
+    storageBucket: "kaleizu-alunos.firebasestorage.app",
+    messagingSenderId: "307510605542",
+    appId: "1:307510605542:web:1a11d1a16dd174c07ced27"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  let candidatos = [];
+
+  document.getElementById("btn-login").addEventListener("click", async () => {
+    try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); }
+  });
+  document.getElementById("btn-logout").addEventListener("click", (e) => {
+    e.preventDefault(); signOut(auth);
+  });
+
+  onAuthStateChanged(auth, async (user) => {
+    const loginErr = document.getElementById("login-error");
+    loginErr.style.display = "none";
+    if (!user) {
+      document.getElementById("login-screen").style.display = "block";
+      document.getElementById("app").style.display = "none";
+      return;
+    }
+    try {
+      const authDoc = await getDoc(doc(db, "usuarios_autorizados", user.email));
+      if (!authDoc.exists()) {
+        loginErr.style.display = "block";
+        await signOut(auth);
+        return;
+      }
+    } catch (e) { console.error(e); }
+
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("user-email").textContent = user.email;
+  });
+
+  document.getElementById("btn-carregar").addEventListener("click", async () => {
+    const statusEl = document.getElementById("status-carregar");
+    statusEl.textContent = "Carregando alunos...";
+    document.getElementById("card-resultado").style.display = "none";
+
+    const cutoffVal = document.getElementById("cutoff").value;
+    const cutoffTs = cutoffVal ? new Date(cutoffVal).getTime() : null;
+
+    try {
+      const snap = await getDocs(collection(db, "alunos"));
+      const todos = [];
+      snap.forEach(d => todos.push({ id: d.id, ...d.data() }));
+
+      candidatos = todos.filter(a => {
+        const semCurso = !a.curso || String(a.curso).trim() === "";
+        const temMatricula = !!(a.matriculaNumero && String(a.matriculaNumero).trim() !== "");
+        if (!semCurso || !temMatricula) return false;
+        if (cutoffTs && a.criadoEm && a.criadoEm < cutoffTs) return false;
+        return true;
+      });
+
+      statusEl.textContent = `${todos.length} alunos no total. ${candidatos.length} candidato(s) à exclusão encontrados.`;
+      renderResultado();
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Erro ao carregar: " + e.message;
+    }
+  });
+
+  function renderResultado() {
+    const card = document.getElementById("card-resultado");
+    const resumo = document.getElementById("resumo");
+    const tabela = document.getElementById("tabela-preview");
+    const maisLinhas = document.getElementById("mais-linhas");
+
+    if (!candidatos.length) {
+      card.style.display = "block";
+      resumo.textContent = "Nenhum candidato encontrado com esses critérios.";
+      tabela.innerHTML = "";
+      maisLinhas.textContent = "";
+      document.getElementById("btn-excluir").disabled = true;
+      return;
+    }
+
+    card.style.display = "block";
+    resumo.textContent = `${candidatos.length} aluno(s) serão excluídos (sem curso + com matrícula):`;
+
+    const preview = candidatos.slice(0, 50);
+    tabela.innerHTML =
+      "<tr><th>Nome</th><th>E-mail</th><th>CPF</th><th>Matrícula</th><th>Data início</th></tr>" +
+      preview.map(a => `<tr><td>${a.nome||""}</td><td>${a.email||""}</td><td>${a.cpf||""}</td><td>${a.matriculaNumero||""}</td><td>${a.dataInicio||""}</td></tr>`).join("");
+    maisLinhas.textContent = candidatos.length > 50 ? `Mostrando 50 de ${candidatos.length}. Exporte o CSV para ver a lista completa.` : "";
+  }
+
+  document.getElementById("btn-exportar").addEventListener("click", () => {
+    if (!candidatos.length) return;
+    const cols = ["id","nome","email","cpf","matriculaNumero","dataInicio","dataFim"];
+    const esc = (v) => { const s=(v??"").toString(); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s; };
+    const linhas = [cols.join(",")].concat(candidatos.map(a => cols.map(c=>esc(a[c])).join(",")));
+    const blob = new Blob([linhas.join("\n")], { type:"text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `candidatos_exclusao_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("confirm-text").addEventListener("input", (e) => {
+    document.getElementById("btn-excluir").disabled = e.target.value.trim() !== "EXCLUIR";
+  });
+
+  document.getElementById("btn-excluir").addEventListener("click", async () => {
+    if (!candidatos.length) return;
+    const statusEl = document.getElementById("status-excluir");
+    document.getElementById("btn-excluir").disabled = true;
+    const BATCH_SIZE = 400;
+    let done = 0;
+    try {
+      for (let i = 0; i < candidatos.length; i += BATCH_SIZE) {
+        const chunk = candidatos.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach(a => batch.delete(doc(db, "alunos", a.id)));
+        await batch.commit();
+        done += chunk.length;
+        statusEl.textContent = `Excluindo... ${done} de ${candidatos.length}`;
+      }
+      statusEl.textContent = `✅ ${done} registro(s) excluído(s) com sucesso.`;
+      candidatos = [];
+      renderResultado();
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Erro ao excluir: " + e.message;
+    }
+  });
+</script>
+</body>
+</html>
