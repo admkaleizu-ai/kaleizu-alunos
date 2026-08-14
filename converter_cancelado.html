@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Kaleizu — Converter Cancelado em Inativo</title>
+<style>
+  :root{ --navy:#0D1B2E; --gold:#B8960C; --red:#B3261E; --gray-border:#E4E0D4; --cream:#FBFAF6; }
+  body{ font-family: -apple-system, Segoe UI, Arial, sans-serif; background:var(--cream); color:#222; margin:0; padding:30px; }
+  .wrap{ max-width:920px; margin:0 auto; }
+  h1{ color:var(--navy); font-size:20px; }
+  p.sub{ color:#666; font-size:13px; margin-top:-8px; }
+  .card{ background:#fff; border:1px solid var(--gray-border); border-radius:10px; padding:22px; margin-bottom:18px; }
+  button{ background:var(--navy); color:#fff; border:none; padding:10px 16px; border-radius:7px; font-size:13px; cursor:pointer; }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+  input[type=text]{ padding:8px 10px; border-radius:7px; border:1px solid var(--gray-border); font-size:13px; }
+  table{ width:100%; border-collapse:collapse; font-size:12px; margin-top:14px; }
+  th, td{ text-align:left; padding:6px 8px; border-bottom:1px solid var(--gray-border); }
+  th{ background:var(--cream); }
+  .status{ font-size:13px; margin-top:10px; }
+  #login-screen{ text-align:center; padding:60px 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="login-screen">
+    <h1>Kaleizu — Converter Cancelado em Inativo</h1>
+    <p class="sub">Entre com a mesma conta Google usada no sistema de alunos.</p>
+    <button id="btn-login">Entrar com Google</button>
+    <p id="login-error" style="display:none; color:var(--red); font-size:13px;">Este e-mail não tem acesso ao sistema.</p>
+  </div>
+
+  <div id="app" style="display:none;">
+    <h1>Converter Status "Cancelado" em "Inativo"</h1>
+    <p class="sub">Logado como <span id="user-email"></span> — <a href="#" id="btn-logout">sair</a></p>
+    <p class="sub">O sistema deixou de usar "Cancelado" como Status do aluno — a partir de agora só existe Ativo/Inativo. Isso não mexe no "Status pagamento" financeiro.</p>
+
+    <div class="card">
+      <button id="btn-carregar">Carregar alunos com Status = Cancelado</button>
+      <div class="status" id="status-carregar"></div>
+    </div>
+
+    <div class="card" id="card-resultado" style="display:none;">
+      <div id="resumo" style="font-weight:600;"></div>
+      <table id="tabela-preview"></table>
+      <div id="mais-linhas" style="font-size:12px; color:#666; margin-top:6px;"></div>
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--gray-border);">
+        <label style="font-size:13px; display:block; margin-bottom:6px;">Digite <strong>CONVERTER</strong> para confirmar:</label>
+        <input type="text" id="confirm-text" placeholder="CONVERTER">
+        <button id="btn-converter" disabled style="margin-left:8px;">Definir Status = Inativo para todos</button>
+      </div>
+      <div class="status" id="status-converter"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, doc, getDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyASQBvvsLhIDt0096Ndl1CaAvpFois0RDY",
+    authDomain: "kaleizu-alunos.firebaseapp.com",
+    projectId: "kaleizu-alunos",
+    storageBucket: "kaleizu-alunos.firebasestorage.app",
+    messagingSenderId: "307510605542",
+    appId: "1:307510605542:web:1a11d1a16dd174c07ced27"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+  let candidatos = [];
+
+  document.getElementById("btn-login").addEventListener("click", async () => {
+    try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); }
+  });
+  document.getElementById("btn-logout").addEventListener("click", (e) => { e.preventDefault(); signOut(auth); });
+
+  onAuthStateChanged(auth, async (user) => {
+    const loginErr = document.getElementById("login-error");
+    loginErr.style.display = "none";
+    if (!user) {
+      document.getElementById("login-screen").style.display = "block";
+      document.getElementById("app").style.display = "none";
+      return;
+    }
+    try {
+      const authDoc = await getDoc(doc(db, "usuarios_autorizados", user.email));
+      if (!authDoc.exists()) { loginErr.style.display = "block"; await signOut(auth); return; }
+    } catch (e) { console.error(e); }
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("user-email").textContent = user.email;
+  });
+
+  document.getElementById("btn-carregar").addEventListener("click", async () => {
+    const statusEl = document.getElementById("status-carregar");
+    statusEl.textContent = "Carregando alunos...";
+    document.getElementById("card-resultado").style.display = "none";
+    try {
+      const snap = await getDocs(collection(db, "alunos"));
+      const todos = [];
+      snap.forEach(d => todos.push({ id: d.id, ...d.data() }));
+      candidatos = todos.filter(a => a.status === "Cancelado");
+      statusEl.textContent = `${todos.length} alunos no total. ${candidatos.length} com Status = Cancelado.`;
+      renderResultado();
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Erro: " + e.message;
+    }
+  });
+
+  function renderResultado() {
+    const card = document.getElementById("card-resultado");
+    const resumo = document.getElementById("resumo");
+    const tabela = document.getElementById("tabela-preview");
+    const maisLinhas = document.getElementById("mais-linhas");
+    card.style.display = "block";
+    if (!candidatos.length) {
+      resumo.textContent = "Nenhum aluno com Status = Cancelado. Tudo certo.";
+      tabela.innerHTML = "";
+      maisLinhas.textContent = "";
+      document.getElementById("btn-converter").disabled = true;
+      return;
+    }
+    resumo.textContent = `${candidatos.length} aluno(s) terão o Status alterado para Inativo:`;
+    const preview = candidatos.slice(0, 50);
+    tabela.innerHTML = "<tr><th>Nome</th><th>E-mail</th><th>Curso</th><th>Canal</th></tr>" +
+      preview.map(a => `<tr><td>${a.nome||""}</td><td>${a.email||""}</td><td>${a.curso||""}</td><td>${a.canalVendas||""}</td></tr>`).join("");
+    maisLinhas.textContent = candidatos.length > 50 ? `Mostrando 50 de ${candidatos.length}.` : "";
+  }
+
+  document.getElementById("confirm-text").addEventListener("input", (e) => {
+    document.getElementById("btn-converter").disabled = e.target.value.trim() !== "CONVERTER" || !candidatos.length;
+  });
+
+  document.getElementById("btn-converter").addEventListener("click", async () => {
+    const statusEl = document.getElementById("status-converter");
+    document.getElementById("btn-converter").disabled = true;
+    try {
+      const BATCH_SIZE = 400;
+      let done = 0;
+      for (let i = 0; i < candidatos.length; i += BATCH_SIZE) {
+        const chunk = candidatos.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach(a => batch.update(doc(db, "alunos", a.id), { status: "Inativo", atualizadoEm: Date.now() }));
+        await batch.commit();
+        done += chunk.length;
+        statusEl.textContent = `Convertendo... ${done}/${candidatos.length}`;
+      }
+      statusEl.textContent = `✅ ${done} aluno(s) convertido(s) para Inativo.`;
+      candidatos = [];
+      renderResultado();
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Erro: " + e.message;
+    }
+  });
+</script>
+</body>
+</html>
