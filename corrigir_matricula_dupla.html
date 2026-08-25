@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Kaleizu — Corrigir matrícula dupla</title>
+<style>
+  :root{ --navy:#0D1B2E; --gold:#B8960C; --red:#B3261E; --gray-border:#E4E0D4; --cream:#FBFAF6; }
+  body{ font-family: -apple-system, Segoe UI, Arial, sans-serif; background:var(--cream); color:#222; margin:0; padding:30px; }
+  .wrap{ max-width:960px; margin:0 auto; }
+  h1{ color:var(--navy); font-size:20px; }
+  p.sub{ color:#666; font-size:13px; margin-top:-8px; }
+  .card{ background:#fff; border:1px solid var(--gray-border); border-radius:10px; padding:22px; margin-bottom:18px; }
+  button{ background:var(--navy); color:#fff; border:none; padding:10px 16px; border-radius:7px; font-size:13px; cursor:pointer; }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+  input[type=text]{ padding:8px 10px; border-radius:7px; border:1px solid var(--gray-border); font-size:13px; }
+  table{ width:100%; border-collapse:collapse; font-size:12px; margin-top:14px; }
+  th, td{ text-align:left; padding:6px 8px; border-bottom:1px solid var(--gray-border); }
+  th{ background:var(--cream); }
+  .status{ font-size:13px; margin-top:10px; }
+  #login-screen{ text-align:center; padding:60px 20px; }
+  .warn{ background:#FFF4E5; border:1px solid #F0C36D; padding:12px 14px; border-radius:8px; font-size:13px; margin-bottom:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="login-screen">
+    <h1>Kaleizu — Corrigir matrícula dupla</h1>
+    <p class="sub">Entre com a mesma conta Google usada no sistema de alunos.</p>
+    <button id="btn-login">Entrar com Google</button>
+    <p id="login-error" style="display:none; color:var(--red); font-size:13px;">Este e-mail não tem acesso ao sistema.</p>
+  </div>
+
+  <div id="app" style="display:none;">
+    <h1>Corrigir matrícula dupla (por e-mail + curso)</h1>
+    <p class="sub">Logado como <span id="user-email"></span> — <a href="#" id="btn-logout">sair</a></p>
+    <div class="warn">
+      Essas 9 pessoas têm 2 matrículas na Sirius (uma por curso). Como a importação por CSV casa só
+      por e-mail, os dados dos dois cursos se misturaram no mesmo registro. Essa ferramenta corrige
+      cada registro pelo par e-mail + curso, aplicando o valor certo em cada um.
+    </div>
+    <div class="card">
+      <button id="btn-carregar">Carregar e conferir os 17 registros</button>
+      <div class="status" id="status-carregar"></div>
+    </div>
+    <div class="card" id="card-resultado" style="display:none;">
+      <div id="resumo" style="font-weight:600;"></div>
+      <table id="tabela-preview"></table>
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--gray-border);">
+        <label style="font-size:13px; display:block; margin-bottom:6px;">Digite <strong>CORRIGIR</strong> para confirmar:</label>
+        <input type="text" id="confirm-text" placeholder="CORRIGIR">
+        <button id="btn-corrigir" disabled style="margin-left:8px;">Aplicar correção</button>
+      </div>
+      <div class="status" id="status-corrigir"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, doc, getDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyASQBvvsLhIDt0096Ndl1CaAvpFois0RDY",
+    authDomain: "kaleizu-alunos.firebaseapp.com",
+    projectId: "kaleizu-alunos",
+    storageBucket: "kaleizu-alunos.firebasestorage.app",
+    messagingSenderId: "307510605542",
+    appId: "1:307510605542:web:1a11d1a16dd174c07ced27"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  const CORRECOES = [
+    {email:"marcellamcapuzzo@hotmail.com", curso:"Pós Clínica", matriculaNumero:"5602", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-08-21", dataFim:"2027-08-21"},
+    {email:"suelenbarbuiovet@gmail.com", curso:"Pós Clínica", matriculaNumero:"5576", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-08-20", dataFim:"2027-08-20"},
+    {email:"marcellamcapuzzo@hotmail.com", curso:"Pós Cardio", matriculaNumero:"5575", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-08-20", dataFim:"2027-08-20"},
+    {email:"fernandademouraincerti@gmail.com", curso:"Pós Cardio", matriculaNumero:"5046", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-07-07", dataFim:"2027-07-07"},
+    {email:"favaratojr@gmail.com", curso:"Pós Cardio", matriculaNumero:"4109", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-05-07", dataFim:"2027-05-07"},
+    {email:"hfreitas@icb.usp.br", curso:"Pós Cardio", matriculaNumero:"4078", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-05-05", dataFim:"2027-05-05"},
+    {email:"carol_medvet@hotmail.com", curso:"Pós Cardio", matriculaNumero:"4075", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-04-29", dataFim:"2027-04-29"},
+    {email:"ca_birg@hotmail.com", curso:"Pós Clínica", matriculaNumero:"3943", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-04-13", dataFim:"2027-04-13"},
+    {email:"favaratojr@gmail.com", curso:"Pós Clínica", matriculaNumero:"3912", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-03-30", dataFim:"2027-03-30"},
+    {email:"fernandademouraincerti@gmail.com", curso:"Pós Clínica", matriculaNumero:"3897", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-03-27", dataFim:"2027-03-27"},
+    {email:"hfreitas@icb.usp.br", curso:"Pós Clínica", matriculaNumero:"3886", statusMatricula:"", dataEfetivacao:"", dataFim:""},
+    {email:"veterinariajasmimarcanjo@gmail.com", curso:"Pós Clínica", matriculaNumero:"3883", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-03-27", dataFim:"2027-03-27"},
+    {email:"fernando@aizza.com.br", curso:"Pós Clínica", matriculaNumero:"3865", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-03-26", dataFim:"2027-03-26"},
+    {email:"pamela.avanco@hotmail.com", curso:"Pós Clínica", matriculaNumero:"3809", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-03-17", dataFim:"2027-03-17"},
+    {email:"ca_birg@hotmail.com", curso:"Pós Cardio", matriculaNumero:"3255", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2026-01-20", dataFim:"2027-01-20"},
+    {email:"veterinariajasmimarcanjo@gmail.com", curso:"Pós Cardio", matriculaNumero:"3050", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2025-12-17", dataFim:"2026-12-17"},
+    {email:"fernando@aizza.com.br", curso:"Pós Cardio", matriculaNumero:"2939", statusMatricula:"Matrícula efetivada", dataEfetivacao:"2025-11-28", dataFim:"2026-11-28"},
+  ];
+
+  let candidatos = [];
+
+  document.getElementById("btn-login").addEventListener("click", async () => {
+    try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); }
+  });
+  document.getElementById("btn-logout").addEventListener("click", (e) => { e.preventDefault(); signOut(auth); });
+
+  onAuthStateChanged(auth, async (user) => {
+    const loginErr = document.getElementById("login-error");
+    loginErr.style.display = "none";
+    if (!user) {
+      document.getElementById("login-screen").style.display = "block";
+      document.getElementById("app").style.display = "none";
+      return;
+    }
+    try {
+      const authDoc = await getDoc(doc(db, "usuarios_autorizados", user.email));
+      if (!authDoc.exists()) { loginErr.style.display = "block"; await signOut(auth); return; }
+    } catch (e) { console.error(e); }
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("user-email").textContent = user.email;
+  });
+
+  document.getElementById("btn-carregar").addEventListener("click", async () => {
+    const statusEl = document.getElementById("status-carregar");
+    statusEl.textContent = "Carregando alunos...";
+    document.getElementById("card-resultado").style.display = "none";
+    try {
+      const snap = await getDocs(collection(db, "alunos"));
+      const todos = [];
+      snap.forEach(d => todos.push({ id: d.id, ...d.data() }));
+
+      candidatos = [];
+      const naoEncontrados = [];
+      for (const corr of CORRECOES) {
+        const match = todos.find(a => (a.email || "").trim().toLowerCase() === corr.email && a.curso === corr.curso);
+        if (match) {
+          candidatos.push({ id: match.id, nome: match.nome, ...corr });
+        } else {
+          naoEncontrados.push(corr.email + " / " + corr.curso);
+        }
+      }
+      let msg = `${candidatos.length} de ${CORRECOES.length} registros encontrados (e-mail + curso).`;
+      if (naoEncontrados.length) msg += ` Não encontrados: ${naoEncontrados.join(", ")}`;
+      statusEl.textContent = msg;
+      renderResultado();
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Erro: " + e.message;
+    }
+  });
+
+  function renderResultado() {
+    const card = document.getElementById("card-resultado");
+    const resumo = document.getElementById("resumo");
+    const tabela = document.getElementById("tabela-preview");
+    card.style.display = "block";
+    if (!candidatos.length) {
+      resumo.textContent = "Nenhum registro pra corrigir.";
+      tabela.innerHTML = "";
+      document.getElementById("btn-corrigir").disabled = true;
+      return;
+    }
+    resumo.textContent = `${candidatos.length} registro(s) serão corrigidos:`;
+    tabela.innerHTML = "<tr><th>Nome</th><th>Curso</th><th>Matrícula</th><th>Status matrícula</th><th>Efetivação</th><th>Finalização</th></tr>" +
+      candidatos.map(c => `<tr><td>${c.nome}</td><td>${c.curso}</td><td>${c.matriculaNumero}</td><td>${c.statusMatricula}</td><td>${c.dataEfetivacao}</td><td>${c.dataFim}</td></tr>`).join("");
+  }
+
+  document.getElementById("confirm-text").addEventListener("input", (e) => {
+    document.getElementById("btn-corrigir").disabled = e.target.value.trim() !== "CORRIGIR" || !candidatos.length;
+  });
+
+  document.getElementById("btn-corrigir").addEventListener("click", async () => {
+    const statusEl = document.getElementById("status-corrigir");
+    document.getElementById("btn-corrigir").disabled = true;
+    try {
+      const batch = writeBatch(db);
+      candidatos.forEach(c => {
+        batch.update(doc(db, "alunos", c.id), {
+          matriculaNumero: c.matriculaNumero,
+          statusMatricula: c.statusMatricula,
+          dataEfetivacao: c.dataEfetivacao,
+          dataFim: c.dataFim,
+          atualizadoEm: Date.now(),
+        });
+      });
+      await batch.commit();
+      statusEl.textContent = `✅ ${candidatos.length} registro(s) corrigido(s).`;
+      candidatos = [];
+      renderResultado();
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Erro: " + e.message;
+    }
+  });
+</script>
+</body>
+</html>
