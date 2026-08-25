@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instituto Kaleizu — Controle de Alunos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Georgia&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy: #0D1B2E;
+    --navy-2: #1B2A4A;
+    --gold: #B8960C;
+    --gold-light: #F0DFA0;
+    --cream: #FAF8F3;
+    --white: #FFFFFF;
+    --gray-text: #5C6470;
+    --gray-border: #E4E1D8;
+    --green: #2E7D4F;
+    --green-bg: #E7F4EC;
+    --red: #B23A34;
+    --red-bg: #FBEAE9;
+    --amber: #B8760C;
+    --amber-bg: #FBF1DD;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--cream);
+    color: var(--navy-2);
+    min-height:100vh;
+  }
+  h1,h2,h3,.brand-font{font-family: Georgia, 'Times New Roman', serif;}
+
+  /* ---------- LOGIN SCREEN ---------- */
+  #login-screen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background: var(--navy);
+    flex-direction:column; gap:24px; padding:24px;
+  }
+  #login-screen .login-card{
+    background: var(--white); border-radius:12px; padding:40px 36px;
+    max-width:380px; width:100%; text-align:center;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  }
+  #login-screen .brand-title{ font-size:22px; color:var(--navy); margin-bottom:4px;}
+  #login-screen .brand-sub{ font-size:13px; color:var(--gray-text); margin-bottom:28px; letter-spacing:0.03em;}
+  .gold-rule{ width:48px; height:3px; background:var(--gold); margin:0 auto 20px; border-radius:2px;}
+  #google-signin-btn{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    width:100%; padding:12px 16px; border-radius:8px; border:1px solid var(--gray-border);
+    background:var(--white); cursor:pointer; font-size:14px; font-weight:600; color:var(--navy-2);
+    transition: background .15s;
+  }
+  #google-signin-btn:hover{ background:#F5F3EC; }
+  #login-error{ margin-top:16px; font-size:13px; color:var(--red); display:none;}
+
+  /* ---------- APP SHELL ---------- */
+  #app{ display:none; min-height:100vh; }
+  .sidebar{
+    width:220px; background:var(--navy); color:var(--white); min-height:100vh;
+    position:fixed; top:0; left:0; padding:24px 0; display:flex; flex-direction:column;
+  }
+  .sidebar .brand{ padding:0 20px 24px; border-bottom:1px solid rgba(255,255,255,0.12); margin-bottom:16px;}
+  .sidebar .brand-title{ font-size:17px; color:var(--white); line-height:1.3;}
+  .sidebar .brand-sub{ font-size:11px; color:var(--gold-light); letter-spacing:0.06em; margin-top:2px;}
+  .nav-item{
+    display:flex; align-items:center; gap:10px; padding:12px 20px; cursor:pointer;
+    color: rgba(255,255,255,0.7); font-size:14px; border-left:3px solid transparent;
+    transition: all .15s;
+  }
+  .nav-item:hover{ background: rgba(255,255,255,0.05); color:var(--white); }
+  .nav-item.active{ background: rgba(184,150,12,0.12); color:var(--white); border-left-color:var(--gold); font-weight:600;}
+  .nav-item .dot{ width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0.6;}
+  .sidebar-footer{ margin-top:auto; padding:16px 20px 0; border-top:1px solid rgba(255,255,255,0.12); font-size:12px; color:rgba(255,255,255,0.55);}
+  .sidebar-footer button{
+    background:none; border:none; color:var(--gold-light); font-size:12px; cursor:pointer; padding:8px 0 0; text-decoration:underline;
+  }
+
+  .main{ margin-left:220px; padding:32px 40px; max-width:1200px; }
+  .page-header{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; flex-wrap:wrap; gap:12px;}
+  .page-header h1{ font-size:24px; color:var(--navy); }
+  .page-header p{ font-size:13px; color:var(--gray-text); margin-top:4px;}
+  .btn{
+    display:inline-flex; align-items:center; gap:6px; padding:10px 18px; border-radius:8px;
+    font-size:13px; font-weight:600; cursor:pointer; border:1px solid var(--gray-border); background:var(--white);
+    color:var(--navy-2); transition: all .15s;
+  }
+  .btn:hover{ border-color:var(--navy-2); }
+  .btn-primary{ background:var(--navy); color:var(--white); border-color:var(--navy);}
+  .btn-primary:hover{ background:var(--navy-2); }
+  .btn-sm{ padding:6px 12px; font-size:12px; }
+  .btn-danger{ color:var(--red); border-color:var(--red-bg); }
+  .btn-danger:hover{ background:var(--red-bg); }
+
+  /* metric cards */
+  .metrics-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px;}
+  .metric-card{ background:var(--white); border:1px solid var(--gray-border); border-radius:10px; padding:18px 20px;}
+  .metric-card .label{ font-size:12px; color:var(--gray-text); margin-bottom:6px;}
+  .metric-card .value{ font-size:26px; font-weight:700; color:var(--navy); }
+  .metric-card .value.warn{ color:var(--amber); }
+
+  /* alert banner */
+  .alert-box{
+    background:var(--amber-bg); border:1px solid #E8CE8F; border-radius:10px; padding:16px 20px; margin-bottom:24px;
+  }
+  .alert-box .alert-title{ font-size:14px; font-weight:700; color:var(--amber); display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .alert-item{ font-size:13px; color:var(--navy-2); padding:4px 0; display:flex; justify-content:space-between; }
+  .alert-item span.days{ color:var(--amber); font-weight:600; }
+
+  /* filters */
+  .filters-bar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .filters-bar select, .filters-bar input[type=text]{
+    padding:9px 12px; border-radius:8px; border:1px solid var(--gray-border); font-size:13px; background:var(--white);
+  }
+  .filters-bar input[type=text]{ min-width:220px; }
+
+  /* top scrollbar (mirrors the table's horizontal scroll) */
+  .scroll-mirror{ overflow-x:auto; overflow-y:hidden; height:16px; margin-bottom:6px; display:none; }
+  .scroll-mirror.show{ display:block; }
+  .scroll-mirror-inner{ height:1px; }
+
+  /* table */
+  .table-wrap{ background:var(--white); border:1px solid var(--gray-border); border-radius:10px; overflow:auto; max-width:100%; }
+  th.col-acoes, td.col-acoes{ position:sticky; right:0; background:var(--white); box-shadow:-4px 0 6px -4px rgba(0,0,0,0.08); }
+  thead th.col-acoes{ background:var(--cream); z-index:3; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  thead th{ text-align:left; padding:12px 16px; background:var(--cream); color:var(--gray-text); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid var(--gray-border); position:sticky; top:0; z-index:2; }
+  tbody td{ padding:12px 16px; border-bottom:1px solid var(--gray-border); color:var(--navy-2); }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:#FBFAF6; }
+  .badge{ display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+  .badge-ativo{ background:var(--green-bg); color:var(--green); }
+  .badge-inativo{ background:#EEECE4; color:var(--gray-text); }
+  .badge-cancelado{ background:var(--red-bg); color:var(--red); }
+  .badge-pendente{ background:var(--amber-bg); color:var(--amber); }
+  .row-actions{ display:flex; gap:6px; }
+  .icon-btn{ background:none; border:none; cursor:pointer; color:var(--gray-text); font-size:15px; padding:4px; }
+  .icon-btn:hover{ color:var(--navy); }
+  .empty-state{ text-align:center; padding:48px 20px; color:var(--gray-text); font-size:13px;}
+
+  /* modal */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(13,27,46,0.55); align-items:flex-start; justify-content:center;
+    padding:40px 20px; overflow-y:auto; z-index:100;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{ background:var(--white); border-radius:12px; width:100%; max-width:560px; padding:28px 32px; }
+  .modal h2{ font-size:18px; color:var(--navy); margin-bottom:18px; }
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-grid .full{ grid-column:1 / -1; }
+  .field label{ display:block; font-size:12px; font-weight:600; color:var(--gray-text); margin-bottom:5px; }
+  .field input, .field select{
+    width:100%; padding:9px 11px; border-radius:7px; border:1px solid var(--gray-border); font-size:13px; background:var(--cream);
+  }
+  .field input:focus, .field select:focus{ outline:2px solid var(--gold-light); border-color:var(--gold); }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+  .modal-close{ position:absolute; }
+  .modal-header-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .modal-header-row h2{ margin:0; }
+  .modal-x{ background:none; border:none; font-size:20px; cursor:pointer; color:var(--gray-text); }
+
+  .loading-msg{ text-align:center; padding:40px; color:var(--gray-text); font-size:13px;}
+  .toast{
+    position:fixed; bottom:24px; right:24px; background:var(--navy); color:var(--white); padding:12px 20px;
+    border-radius:8px; font-size:13px; box-shadow:0 6px 20px rgba(0,0,0,0.2); display:none; z-index:200;
+  }
+  .toast.show{ display:block; }
+
+  .dash-cursos-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-bottom:24px; }
+
+  @media (max-width: 900px){
+    .dash-cursos-grid{ grid-template-columns:1fr; }
+    .sidebar{ width:100%; position:relative; min-height:auto; flex-direction:row; flex-wrap:wrap; padding:12px 16px;}
+    .sidebar .brand{ border:none; padding:0; margin:0; width:100%; margin-bottom:8px;}
+    .sidebar-footer{ display:none; }
+    .main{ margin-left:0; padding:20px; }
+    .metrics-grid{ grid-template-columns:1fr 1fr; }
+    .form-grid{ grid-template-columns:1fr; }
+    .table-wrap{ overflow-x:auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="gold-rule"></div>
+    <div class="brand-title brand-font">Instituto Kaleizu</div>
+    <div class="brand-sub">CONTROLE DE ALUNOS</div>
+    <button id="google-signin-btn">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.08-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33C2.44 15.98 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.97 10.72c-.18-.54-.28-1.11-.28-1.72s.1-1.18.28-1.72V4.95H.96A8.996 8.996 0 000 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.59-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+      Entrar com Google
+    </button>
+    <div id="login-error">Este e-mail não tem acesso ao sistema. Fale com a coordenação.</div>
+    <div id="demo-notice" style="display:none; margin-top:16px; font-size:12px; color:#8A6D00; background:#FBF1DD; border:1px solid #E8CE8F; border-radius:6px; padding:8px 10px;">
+      Modo de teste — o Firebase ainda não foi conectado. O login abaixo entra direto com dados de exemplo.
+    </div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-title brand-font">Instituto Kaleizu</div>
+      <div class="brand-sub">CONTROLE DE ALUNOS</div>
+    </div>
+    <div class="nav-item active" data-page="dashboard"><span class="dot"></span>Dashboard</div>
+    <div class="nav-item" data-page="alunos"><span class="dot"></span>Alunos</div>
+    <div class="nav-item" data-page="financeiro"><span class="dot"></span>Financeiro</div>
+    <div class="nav-item" data-page="duplicados"><span class="dot"></span>Duplicados</div>
+    <div class="sidebar-footer">
+      <div id="user-email-label" style="color:var(--white);"></div>
+      <button id="logout-btn">Sair</button>
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- DASHBOARD PAGE -->
+    <div class="page" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Visão geral dos alunos e turmas do instituto</p>
+        </div>
+        <button class="btn btn-primary" id="btn-novo-dash">+ Cadastrar aluno</button>
+      </div>
+
+      <div id="dash-cursos"></div>
+
+      <div class="table-wrap" style="margin-top:8px;">
+        <table>
+          <thead><tr><th>Aluno</th><th>Curso</th><th>Lançamento</th><th>Encerramento</th><th>Status</th></tr></thead>
+          <tbody id="dash-recent-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ALUNOS PAGE -->
+    <div class="page" id="page-alunos" style="display:none;">
+      <div class="page-header">
+        <div>
+          <h1>Alunos</h1>
+          <p>Cadastro e listagem completa</p>
+        </div>
+        <button class="btn btn-primary" id="btn-novo-alunos">+ Cadastrar aluno</button>
+      </div>
+
+      <div class="filters-bar">
+        <input type="text" id="f-busca" placeholder="Buscar por nome, e-mail, CPF, celular ou matrícula">
+        <select id="f-curso"><option value="">Todos os cursos</option><option>Pós Cardio</option><option>Pós Clínica</option></select>
+        <select id="f-turma"><option value="">Todas as turmas</option></select>
+        <select id="f-lancamento"><option value="">Todos os lançamentos</option></select>
+        <select id="f-status">
+          <option value="">Todos os status</option>
+          <option value="Ativo">Ativo</option>
+          <option value="Inativo">Inativo</option>
+        </select>
+        <select id="f-status-matricula">
+          <option value="">Toda matrícula</option>
+          <option>Matrícula efetivada</option>
+          <option>Documentos não enviados</option>
+          <option>Aguardando efetivação</option>
+        </select>
+        <select id="f-grupo">
+          <option value="">Todo grupo</option>
+          <option>No grupo</option>
+          <option>Não está no grupo</option>
+          <option>Removido</option>
+        </select>
+        <select id="f-faculdade">
+          <option value="">Toda faculdade</option>
+          <option value="Anhanguera">Anhanguera</option>
+          <option value="Sirius">Sirius</option>
+        </select>
+        <select id="f-tem-matricula">
+          <option value="">Com/sem matrícula</option>
+          <option value="com">Com matrícula</option>
+          <option value="sem">Sem matrícula</option>
+        </select>
+        <select id="f-fotos">
+          <option value="">Fotos: todos</option>
+          <option value="Sim">Fotos: enviadas</option>
+          <option value="Não">Fotos: não enviadas</option>
+        </select>
+        <select id="f-form-mv">
+          <option value="">Form. M.V.: todos</option>
+          <option value="Sim">Form. M.V.: enviado</option>
+          <option value="Não">Form. M.V.: não enviado</option>
+        </select>
+        <button class="btn btn-sm" id="btn-importar-csv">⬆ Importar CSV</button>
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--gray-text); cursor:pointer;">
+          <input type="checkbox" id="chk-somente-atualizar">
+          Somente atualizar existentes (não criar novos)
+        </label>
+        <button class="btn btn-sm" id="btn-exportar-csv">⬇ Exportar CSV</button>
+        <input type="file" id="input-csv" accept=".csv" style="display:none;">
+      </div>
+
+      <div id="alunos-resumo" style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:14px; font-size:12px; color:var(--gray-text);"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Matrícula</th><th>Aluno</th><th>Celular</th><th>Faculdade</th><th>Curso</th><th>Turma</th><th>Lançamento</th><th>Encerramento</th><th>Status</th><th>Matrícula (status)</th><th>Grupo</th><th>Fotos</th><th>Form. M.V.</th><th>Obs. contrato</th><th>Atualizado em</th><th class="col-acoes"></th></tr></thead>
+          <tbody id="alunos-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- FINANCEIRO PAGE -->
+    <div class="page" id="page-financeiro" style="display:none;">
+      <div class="page-header">
+        <div>
+          <h1>Financeiro</h1>
+          <p>Pagamentos e parcelas dos alunos ativos</p>
+        </div>
+      </div>
+
+      <div class="filters-bar">
+        <input type="text" id="f-busca-fin" placeholder="Buscar por nome">
+        <select id="f-curso-fin"><option value="">Todos os cursos</option><option>Pós Cardio</option><option>Pós Clínica</option></select>
+        <select id="f-turma-fin"><option value="">Todas as turmas</option></select>
+        <select id="f-lancamento-fin"><option value="">Todos os lançamentos</option></select>
+        <select id="f-pagamento-fin">
+          <option value="">Toda forma de pagamento</option>
+          <option>Boleto</option><option>Cartão</option><option>Pix</option><option>Bolsista</option>
+        </select>
+        <select id="f-plataforma-fin">
+          <option value="">Toda plataforma</option>
+          <option>TMB</option><option>HUBLA</option><option>VOOMP</option>
+        </select>
+        <select id="f-status-fin">
+          <option value="">Todos os pagamentos</option>
+          <option value="Em dia">Em dia</option>
+          <option value="Pendente">Pendente</option>
+          <option value="Atrasado">Atrasado</option>
+          <option value="Concluído">Concluído</option>
+          <option value="Cancelado">Cancelado (contrato)</option>
+          <option value="inadimplente30">🚩 Inadimplente 30+ dias</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Aluno</th><th>E-mail</th><th>Curso</th><th>Celular</th><th>Plataforma</th><th>Forma pagamento</th><th>Parcelas</th><th>Próxima parcela</th><th>Status pagamento</th><th class="col-acoes"></th></tr></thead>
+          <tbody id="fin-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DUPLICADOS PAGE -->
+    <div class="page" id="page-duplicados" style="display:none;">
+      <div class="page-header">
+        <div>
+          <h1>Duplicados</h1>
+          <p>Alunos com o mesmo CPF cadastrados mais de uma vez no mesmo curso</p>
+        </div>
+        <button class="btn" id="btn-verificar-dup">🔍 Verificar duplicados</button>
+      </div>
+      <div id="dup-resultado"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ MODAL: CADASTRO / EDIÇÃO ============ -->
+<div class="modal-overlay" id="modal-aluno">
+  <div class="modal">
+    <div class="modal-header-row">
+      <h2 id="modal-title">Cadastrar aluno</h2>
+      <button class="modal-x" id="modal-close">×</button>
+    </div>
+    <form id="form-aluno">
+      <div class="form-grid">
+        <div class="field full"><label>Nome completo *</label><input type="text" id="fld-nome" required></div>
+        <div class="field"><label>E-mail *</label><input type="email" id="fld-email" required></div>
+        <div class="field"><label>Celular *</label><input type="text" id="fld-celular" placeholder="(00) 00000-0000" required></div>
+        <div class="field"><label>CPF</label><input type="text" id="fld-cpf" placeholder="000.000.000-00"></div>
+        <div class="field">
+          <label>Curso *</label>
+          <select id="fld-curso" required>
+            <option value="">Selecione</option>
+            <option>Pós Cardio</option>
+            <option>Pós Clínica</option>
+          </select>
+        </div>
+        <div class="field"><label>Matrícula (número)</label><input type="text" id="fld-matricula-num" placeholder="14035811"></div>
+        <div class="field">
+          <label>Fotos enviadas</label>
+          <select id="fld-fotos"><option value="">—</option><option>Sim</option><option>Não</option></select>
+        </div>
+        <div class="field">
+          <label>Form. M.V.</label>
+          <select id="fld-form-mv"><option value="">—</option><option>Sim</option><option>Não</option></select>
+        </div>
+        <div class="field full"><label>Observações do contrato</label><input type="text" id="fld-contrato-obs" placeholder="Ex: renegociação, número novo, etc."></div>
+        <div class="field">
+          <label>Turma</label>
+          <select id="fld-turma">
+            <option>T1</option>
+            <option value="__nova__">+ Nova turma</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Lançamento *</label>
+          <select id="fld-lancamento" required>
+            <option value="">Selecione</option>
+            <option>L4</option><option>L5</option><option>L6</option><option>L7</option><option>L8</option><option>L10</option>
+            <option value="__nova__">+ Novo lançamento</option>
+          </select>
+        </div>
+        <div class="field"><label>Data de compra *</label><input type="date" id="fld-inicio" required></div>
+        <div class="field"><label>Data de efetivação da matrícula</label><input type="date" id="fld-efetivacao"></div>
+        <div class="field"><label>Data de finalização *</label><input type="date" id="fld-fim" required></div>
+        <div class="field">
+          <label>Canal de vendas</label>
+          <select id="fld-canal">
+            <option value="">—</option>
+            <option>VOOMP</option><option>HUBLA</option><option>TMB</option><option>Outro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Status *</label>
+          <select id="fld-status" required>
+            <option>Ativo</option><option>Inativo</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Status da matrícula</label>
+          <select id="fld-status-matricula">
+            <option value="">—</option>
+            <option>Matrícula efetivada</option>
+            <option>Documentos não enviados</option>
+            <option>Aguardando efetivação</option>
+            <option>Formado</option>
+            <option>Indeferida</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Grupo do WhatsApp</label>
+          <select id="fld-grupo-whats">
+            <option value="">—</option>
+            <option>No grupo</option>
+            <option>Não está no grupo</option>
+            <option>Removido</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Forma de pagamento</label>
+          <select id="fld-pagamento">
+            <option value="">—</option>
+            <option>Boleto</option><option>Cartão</option><option>Pix</option><option>Bolsista</option>
+          </select>
+        </div>
+        <div class="field"><label>Total de parcelas</label><input type="number" min="0" id="fld-total-parcelas" placeholder="18"></div>
+        <div class="field"><label>Parcelas pagas</label><input type="number" min="0" id="fld-parcelas-pagas" placeholder="0"></div>
+        <div class="field"><label>Data da próxima parcela</label><input type="date" id="fld-proxima-parcela"></div>
+        <div class="field full">
+          <label>Status pagamento</label>
+          <select id="fld-status-pag">
+            <option>Em dia</option><option>Pendente</option><option>Atrasado</option><option>Concluído</option><option>Cancelado</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="btn-cancelar-modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="btn-salvar-modal">Salvar aluno</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="modal-import">
+  <div class="modal" style="max-width:420px; text-align:center;">
+    <h2 id="import-title">Importando alunos...</h2>
+    <p id="import-status" style="font-size:13px; color:var(--gray-text); margin:12px 0;">Preparando...</p>
+    <div style="background:var(--cream); border-radius:8px; height:8px; overflow:hidden; margin-bottom:16px;">
+      <div id="import-bar" style="background:var(--gold); height:100%; width:0%; transition:width .2s;"></div>
+    </div>
+    <button class="btn" id="import-close" style="display:none;">Fechar</button>
+  </div>
+</div>
+
+<!-- ============ FIREBASE ============ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot,
+    query, orderBy, getDoc, writeBatch
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ======================================================
+  // TODO: cole aqui a configuração do SEU projeto Firebase
+  // (Console Firebase > Configurações do projeto > Seus apps > SDK setup)
+  // ======================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyASQBvvsLhIDt0096Ndl1CaAvpFois0RDY",
+    authDomain: "kaleizu-alunos.firebaseapp.com",
+    projectId: "kaleizu-alunos",
+    storageBucket: "kaleizu-alunos.firebasestorage.app",
+    messagingSenderId: "307510605542",
+    appId: "1:307510605542:web:1a11d1a16dd174c07ced27"
+  };
+
+  // ======================================================
+  // MODO DE TESTE (só pra pré-visualização, sem Firebase real)
+  // Remova este bloco (e o "if (DEMO_MODE)" mais abaixo) quando
+  // conectar o firebaseConfig de verdade acima.
+  // ======================================================
+  const FIREBASE_NAO_CONFIGURADO = firebaseConfig.apiKey === "COLE_AQUI";
+  const DEMO_MODE = FIREBASE_NAO_CONFIGURADO || new URLSearchParams(location.search).has("demo");
+  const DEMO_ALUNOS = [
+    { id:"d1", nome:"Camille Dala Monta Annoni", email:"camila@email.com", celular:"(54) 99905-2095", cpf:"229.722.008-00", curso:"Pós Cardio", turma:"T1", lancamento:"L5", dataInicio:"2025-03-10", dataFim:"2026-03-09", canalVendas:"VOOMP", status:"Ativo", statusMatricula:"Matrícula efetivada", grupoWhats:"No grupo", formaPagamento:"Boleto", totalParcelas:18, parcelasPagas:18, proximaParcela:"", statusPagamento:"Concluído", criadoEm: Date.now() - 2*86400000 },
+    { id:"d2", nome:"Claudio Luiz Pereira", email:"claudio@email.com", celular:"(19) 99601-5258", cpf:"548.056.277-00", curso:"Pós Cardio", turma:"T1", lancamento:"L4", dataInicio:"2025-03-10", dataFim:"2026-03-09", canalVendas:"VOOMP", status:"Ativo", statusMatricula:"Matrícula efetivada", grupoWhats:"No grupo", formaPagamento:"Cartão", totalParcelas:18, parcelasPagas:1, proximaParcela:"2026-09-10", statusPagamento:"Em dia", criadoEm: Date.now() - 5*86400000 },
+    { id:"d3", nome:"Adriana Galeb", email:"adriana@email.com", celular:"(41) 99960-0908", cpf:"390.919.594-60", curso:"Pós Cardio", turma:"T1", lancamento:"L5", dataInicio:"2025-03-10", dataFim:"2026-08-20", canalVendas:"HUBLA", status:"Cancelado", statusMatricula:"Documentos não enviados", grupoWhats:"Removido", formaPagamento:"Boleto", totalParcelas:18, parcelasPagas:2, proximaParcela:"2026-08-15", statusPagamento:"Atrasado", criadoEm: Date.now() - 10*86400000 },
+    { id:"d4", nome:"Rafael Souza Lima", email:"rafael@email.com", celular:"(11) 98888-1234", cpf:"111.222.333-44", curso:"Pós Clínica", turma:"T1", lancamento:"L6", dataInicio:"2025-05-01", dataFim:"2026-08-25", canalVendas:"TMB", status:"Ativo", statusMatricula:"Matrícula efetivada", grupoWhats:"No grupo", formaPagamento:"Pix", totalParcelas:12, parcelasPagas:12, proximaParcela:"", statusPagamento:"Concluído", criadoEm: Date.now() - 1*86400000 },
+    { id:"d5", nome:"Fernanda Costa", email:"fernanda@email.com", celular:"(21) 97777-4321", cpf:"555.666.777-88", curso:"Pós Clínica", turma:"T1", lancamento:"L6", dataInicio:"2025-06-15", dataFim:"2026-09-10", canalVendas:"VOOMP", status:"Inativo", statusMatricula:"Aguardando efetivação", grupoWhats:"Não está no grupo", formaPagamento:"Cartão", totalParcelas:12, parcelasPagas:6, proximaParcela:"2026-08-20", statusPagamento:"Pendente", criadoEm: Date.now() - 20*86400000 },
+  ];
+
+  const app = DEMO_MODE ? null : initializeApp(firebaseConfig);
+  const auth = DEMO_MODE ? null : getAuth(app);
+  const db = DEMO_MODE ? null : getFirestore(app);
+  const provider = DEMO_MODE ? null : new GoogleAuthProvider();
+
+  let alunosCache = [];
+  let editingId = null;
+
+  if (DEMO_MODE) {
+    document.getElementById("demo-notice").style.display = "block";
+  }
+
+  // ---------- AUTH ----------
+  document.getElementById("google-signin-btn").addEventListener("click", async () => {
+    if (DEMO_MODE) {
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("app").style.display = "block";
+      document.getElementById("user-email-label").textContent = "demo@kaleizu.com (modo teste)";
+      alunosCache = DEMO_ALUNOS;
+      renderAll();
+      return;
+    }
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
+  document.getElementById("logout-btn").addEventListener("click", () => {
+    if (DEMO_MODE) { location.reload(); return; }
+    signOut(auth);
+  });
+
+  if (DEMO_MODE) {
+    // pula toda a lógica de autenticação real
+  } else
+  onAuthStateChanged(auth, async (user) => {
+    const loginErr = document.getElementById("login-error");
+    loginErr.style.display = "none";
+
+    if (!user) {
+      document.getElementById("login-screen").style.display = "flex";
+      document.getElementById("app").style.display = "none";
+      return;
+    }
+
+    // Verifica se o e-mail está na lista de usuários autorizados
+    // (crie manualmente documentos na coleção "usuarios_autorizados" com o e-mail como ID do documento)
+    try {
+      const authDoc = await getDoc(doc(db, "usuarios_autorizados", user.email));
+      if (!authDoc.exists()) {
+        loginErr.style.display = "block";
+        await signOut(auth);
+        return;
+      }
+    } catch (e) {
+      console.error("Erro ao checar autorização", e);
+    }
+
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("user-email-label").textContent = user.email;
+
+    startListening();
+  });
+
+  // ---------- FIRESTORE LISTENER ----------
+  function startListening() {
+    const q = query(collection(db, "alunos"), orderBy("criadoEm", "desc"));
+    onSnapshot(q, (snap) => {
+      alunosCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderAll();
+    });
+  }
+
+  // ---------- NAVIGATION ----------
+  document.querySelectorAll(".nav-item").forEach(item => {
+    item.addEventListener("click", () => {
+      document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+      item.classList.add("active");
+      document.querySelectorAll(".page").forEach(p => p.style.display = "none");
+      document.getElementById("page-" + item.dataset.page).style.display = "block";
+    });
+  });
+
+  // ---------- MODAL ----------
+  const modal = document.getElementById("modal-aluno");
+  function openModal(aluno = null) {
+    editingId = aluno ? aluno.id : null;
+    document.getElementById("modal-title").textContent = aluno ? "Editar aluno" : "Cadastrar aluno";
+    document.getElementById("fld-nome").value = aluno?.nome || "";
+    document.getElementById("fld-email").value = aluno?.email || "";
+    document.getElementById("fld-celular").value = aluno?.celular || "";
+    document.getElementById("fld-cpf").value = aluno?.cpf || "";
+    document.getElementById("fld-matricula-num").value = aluno?.matriculaNumero || "";
+    document.getElementById("fld-fotos").value = aluno?.fotos || "";
+    document.getElementById("fld-form-mv").value = aluno?.formMV || "";
+    document.getElementById("fld-contrato-obs").value = aluno?.contratoObs || "";
+    document.getElementById("fld-curso").value = aluno?.curso || "";
+    document.getElementById("fld-turma").value = aluno?.turma || "T1";
+    document.getElementById("fld-lancamento").value = aluno?.lancamento || "";
+    document.getElementById("fld-inicio").value = aluno?.dataInicio || "";
+    document.getElementById("fld-efetivacao").value = aluno?.dataEfetivacao || "";
+    document.getElementById("fld-fim").value = aluno?.dataFim || "";
+    document.getElementById("fld-canal").value = aluno?.canalVendas || "";
+    document.getElementById("fld-status").value = aluno?.status || "Ativo";
+    document.getElementById("fld-status-matricula").value = aluno?.statusMatricula || "";
+    document.getElementById("fld-grupo-whats").value = aluno?.grupoWhats || "";
+    document.getElementById("fld-pagamento").value = aluno?.formaPagamento || "";
+    document.getElementById("fld-total-parcelas").value = aluno?.totalParcelas ?? "";
+    document.getElementById("fld-parcelas-pagas").value = aluno?.parcelasPagas ?? "";
+    document.getElementById("fld-proxima-parcela").value = aluno?.proximaParcela || "";
+    document.getElementById("fld-status-pag").value = aluno?.statusPagamento || "Em dia";
+    modal.classList.add("open");
+  }
+  function closeModal() { modal.classList.remove("open"); }
+
+  document.getElementById("btn-novo-dash").addEventListener("click", () => openModal());
+  document.getElementById("btn-novo-alunos").addEventListener("click", () => openModal());
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+  document.getElementById("btn-cancelar-modal").addEventListener("click", closeModal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+  function handleNovoValor(selectEl, label) {
+    selectEl.addEventListener("change", (e) => {
+      if (e.target.value === "__nova__") {
+        const novo = prompt(label);
+        if (novo) {
+          const opt = document.createElement("option");
+          opt.value = novo; opt.textContent = novo; opt.selected = true;
+          e.target.insertBefore(opt, e.target.lastElementChild);
+        } else {
+          e.target.value = "";
+        }
+      }
+    });
+  }
+  handleNovoValor(document.getElementById("fld-turma"), "Nome da nova turma:");
+  handleNovoValor(document.getElementById("fld-lancamento"), "Código do novo lançamento:");
+
+  document.getElementById("form-aluno").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const payload = {
+      nome: document.getElementById("fld-nome").value.trim(),
+      email: document.getElementById("fld-email").value.trim(),
+      celular: document.getElementById("fld-celular").value.trim(),
+      cpf: document.getElementById("fld-cpf").value.trim(),
+      matriculaNumero: document.getElementById("fld-matricula-num").value.trim(),
+      fotos: document.getElementById("fld-fotos").value,
+      formMV: document.getElementById("fld-form-mv").value,
+      contratoObs: document.getElementById("fld-contrato-obs").value.trim(),
+      curso: document.getElementById("fld-curso").value,
+      turma: document.getElementById("fld-turma").value,
+      lancamento: document.getElementById("fld-lancamento").value,
+      dataInicio: document.getElementById("fld-inicio").value,
+      dataEfetivacao: document.getElementById("fld-efetivacao").value,
+      dataFim: document.getElementById("fld-fim").value,
+      canalVendas: document.getElementById("fld-canal").value,
+      status: document.getElementById("fld-status").value,
+      statusMatricula: document.getElementById("fld-status-matricula").value,
+      grupoWhats: document.getElementById("fld-grupo-whats").value,
+      formaPagamento: document.getElementById("fld-pagamento").value,
+      totalParcelas: Number(document.getElementById("fld-total-parcelas").value) || 0,
+      parcelasPagas: Number(document.getElementById("fld-parcelas-pagas").value) || 0,
+      proximaParcela: document.getElementById("fld-proxima-parcela").value,
+      statusPagamento: document.getElementById("fld-status-pag").value,
+    };
+
+    try {
+      if (DEMO_MODE) {
+        if (editingId) {
+          const i = alunosCache.findIndex(a => a.id === editingId);
+          alunosCache[i] = { ...alunosCache[i], ...payload };
+          showToast("Aluno atualizado (modo teste, não é salvo de verdade)");
+        } else {
+          payload.id = "demo-" + Date.now();
+          payload.criadoEm = Date.now();
+          alunosCache.unshift(payload);
+          showToast("Aluno cadastrado (modo teste, não é salvo de verdade)");
+        }
+        renderAll();
+        closeModal();
+        return;
+      }
+      if (editingId) {
+        await updateDoc(doc(db, "alunos", editingId), { ...payload, atualizadoEm: Date.now() });
+        showToast("Aluno atualizado");
+      } else {
+        payload.criadoEm = Date.now();
+        payload.atualizadoEm = Date.now();
+        await addDoc(collection(db, "alunos"), payload);
+        showToast("Aluno cadastrado");
+      }
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao salvar. Veja o console.");
+    }
+  });
+
+  async function excluirAluno(id) {
+    if (!confirm("Tem certeza que deseja excluir este aluno?")) return;
+    if (DEMO_MODE) {
+      alunosCache = alunosCache.filter(a => a.id !== id);
+      renderAll();
+      showToast("Aluno excluído (modo teste)");
+      return;
+    }
+    await deleteDoc(doc(db, "alunos", id));
+    showToast("Aluno excluído");
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    setTimeout(() => t.classList.remove("show"), 2500);
+  }
+
+  // ---------- RENDER ----------
+  function diasAte(dataStr) {
+    if (!dataStr) return null;
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const alvo = new Date(dataStr + "T00:00:00");
+    return Math.round((alvo - hoje) / 86400000);
+  }
+
+  function isInadimplente30(aluno) {
+    if (!aluno.proximaParcela) return false;
+    if (aluno.statusPagamento === "Cancelado" || aluno.statusPagamento === "Concluído") return false;
+    const d = diasAte(aluno.proximaParcela);
+    return d !== null && d <= -30;
+  }
+
+  function badgeStatus(status) {
+    const cls = status === "Ativo" ? "badge-ativo" : "badge-inativo";
+    return `<span class="badge ${cls}">${status}</span>`;
+  }
+
+  function fmtData(d) {
+    if (!d) return "—";
+    const [y,m,day] = d.split("-");
+    return `${day}/${m}/${y}`;
+  }
+
+  function fmtDataHora(ts) {
+    if (!ts) return "—";
+    const d = new Date(ts);
+    const dia = String(d.getDate()).padStart(2,"0");
+    const mes = String(d.getMonth()+1).padStart(2,"0");
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    return `${dia}/${mes} ${hh}:${mm}`;
+  }
+
+  function renderAll() {
+    renderLancamentoFilter();
+    renderDashboard();
+    renderAlunos();
+    renderFinanceiro();
+    initTopScrollbars();
+  }
+
+  // Cria (uma única vez) uma barra de rolagem horizontal no topo de cada
+  // .table-wrap, espelhando a rolagem da tabela para facilitar o uso
+  // sem precisar descer até o final da lista.
+  function initTopScrollbars() {
+    document.querySelectorAll(".table-wrap").forEach((wrap) => {
+      const table = wrap.querySelector("table");
+      if (!table) return;
+
+      let mirror = wrap.previousElementSibling;
+      if (!mirror || !mirror.classList.contains("scroll-mirror")) {
+        mirror = document.createElement("div");
+        mirror.className = "scroll-mirror";
+        const inner = document.createElement("div");
+        inner.className = "scroll-mirror-inner";
+        mirror.appendChild(inner);
+        wrap.parentNode.insertBefore(mirror, wrap);
+
+        let syncing = false;
+        mirror.addEventListener("scroll", () => {
+          if (syncing) return;
+          syncing = true;
+          wrap.scrollLeft = mirror.scrollLeft;
+          syncing = false;
+        });
+        wrap.addEventListener("scroll", () => {
+          if (syncing) return;
+          syncing = true;
+          mirror.scrollLeft = wrap.scrollLeft;
+          syncing = false;
+        });
+
+        new ResizeObserver(() => updateScrollMirror(wrap, mirror)).observe(table);
+        new ResizeObserver(() => updateScrollMirror(wrap, mirror)).observe(wrap);
+      }
+      updateScrollMirror(wrap, mirror);
+    });
+  }
+
+  function updateScrollMirror(wrap, mirror) {
+    const table = wrap.querySelector("table");
+    if (!table) return;
+    const inner = mirror.querySelector(".scroll-mirror-inner");
+    inner.style.width = table.scrollWidth + "px";
+    const needsScroll = table.scrollWidth > wrap.clientWidth + 1;
+    mirror.classList.toggle("show", needsScroll);
+  }
+
+  function ordenarLancamentos(lista) {
+    return [...lista].sort((a, b) => {
+      const numA = parseInt(String(a).replace(/\D/g, ""), 10);
+      const numB = parseInt(String(b).replace(/\D/g, ""), 10);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      if (!isNaN(numA)) return -1;
+      if (!isNaN(numB)) return 1;
+      return String(a).localeCompare(String(b));
+    });
+  }
+
+  function renderLancamentoFilter() {
+    const sel = document.getElementById("f-lancamento");
+    const atual = sel.value;
+    const lancamentos = ordenarLancamentos([...new Set(alunosCache.map(a => a.lancamento).filter(Boolean))]);
+    sel.innerHTML = '<option value="">Todos os lançamentos</option>' + lancamentos.map(t => `<option value="${t}">${t}</option>`).join("");
+    sel.value = atual;
+
+    const selTurma = document.getElementById("f-turma");
+    const atualTurma = selTurma.value;
+    const turmas = ordenarLancamentos([...new Set(alunosCache.map(a => a.turma).filter(Boolean))]);
+    selTurma.innerHTML = '<option value="">Todas as turmas</option>' + turmas.map(t => `<option value="${t}">${t}</option>`).join("");
+    selTurma.value = atualTurma;
+
+    const selTurmaFin = document.getElementById("f-turma-fin");
+    if (selTurmaFin) {
+      const atualTurmaFin = selTurmaFin.value;
+      selTurmaFin.innerHTML = '<option value="">Todas as turmas</option>' + turmas.map(t => `<option value="${t}">${t}</option>`).join("");
+      selTurmaFin.value = atualTurmaFin;
+    }
+
+    const selLancFin = document.getElementById("f-lancamento-fin");
+    if (selLancFin) {
+      const atualLancFin = selLancFin.value;
+      selLancFin.innerHTML = '<option value="">Todos os lançamentos</option>' + lancamentos.map(t => `<option value="${t}">${t}</option>`).join("");
+      selLancFin.value = atualLancFin;
+    }
+  }
+
+  function renderDashboard() {
+    const cursos = [...new Set(alunosCache.map(a => a.curso).filter(Boolean))].sort();
+    const container = document.getElementById("dash-cursos");
+
+    if (cursos.length === 0) {
+      container.innerHTML = `<div class="empty-state">Nenhum aluno cadastrado ainda.</div>`;
+    } else {
+      container.innerHTML = `<div class="dash-cursos-grid">` +
+        cursos.map(curso => {
+          const alunosCurso = alunosCache.filter(a => a.curso === curso);
+          const ativos = alunosCurso.filter(a => a.status === "Ativo");
+          const encerrando = ativos.filter(a => {
+            const d = diasAte(a.dataFim);
+            return d !== null && d >= 0 && d <= 30;
+          }).sort((a,b) => diasAte(a.dataFim) - diasAte(b.dataFim));
+          const lancamentos = new Set(ativos.map(a => a.lancamento).filter(Boolean));
+
+          const matEfetivada = ativos.filter(a => a.statusMatricula === "Matrícula efetivada").length;
+          const matDocsPendentes = ativos.filter(a => a.statusMatricula === "Documentos não enviados").length;
+          const matAguardando = ativos.filter(a => a.statusMatricula === "Aguardando efetivação").length;
+
+          const pagEmDia = ativos.filter(a => a.statusPagamento === "Em dia").length;
+          const pagQuitado = ativos.filter(a => a.statusPagamento === "Concluído").length;
+          const pagAtrasado = ativos.filter(a => a.statusPagamento === "Atrasado").length;
+          const pagPendente = ativos.filter(a => !a.statusPagamento || a.statusPagamento === "Pendente").length;
+
+          const noGrupo = ativos.filter(a => a.grupoWhats === "No grupo").length;
+          const foraGrupo = ativos.length - noGrupo;
+
+          const parcelasVencendo = ativos.filter(a => {
+            if (!a.proximaParcela) return false;
+            const d = diasAte(a.proximaParcela);
+            return d !== null && d >= 0 && d <= 7;
+          }).sort((a,b) => diasAte(a.proximaParcela) - diasAte(b.proximaParcela));
+
+          const inadimplentes30 = ativos.filter(isInadimplente30);
+
+          return `
+            <div style="background:var(--white); border:1px solid var(--gray-border); border-radius:12px; padding:20px;">
+              <h3 style="font-size:16px; color:var(--navy); margin-bottom:14px;">${curso}</h3>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px;">
+                <div><div style="font-size:11px;color:var(--gray-text);">Ativos</div><div style="font-size:20px;font-weight:700;color:var(--navy);">${ativos.length}</div></div>
+                <div><div style="font-size:11px;color:var(--gray-text);">Encerrando 30d</div><div style="font-size:20px;font-weight:700;color:var(--amber);">${encerrando.length}</div></div>
+                <div><div style="font-size:11px;color:var(--gray-text);">Lançamentos</div><div style="font-size:20px;font-weight:700;color:var(--navy);">${lancamentos.size}</div></div>
+              </div>
+
+              <div style="border-top:1px solid var(--gray-border); padding-top:12px; margin-bottom:12px;">
+                <div style="font-size:11px; font-weight:700; color:var(--gray-text); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">Status da matrícula</div>
+                <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:12px;">
+                  <span>✅ Efetivada: <b>${matEfetivada}</b></span>
+                  <span>📄 Docs pendentes: <b style="color:var(--amber);">${matDocsPendentes}</b></span>
+                  <span>⏳ Aguardando: <b>${matAguardando}</b></span>
+                </div>
+              </div>
+
+              <div style="border-top:1px solid var(--gray-border); padding-top:12px; margin-bottom:14px;">
+                <div style="font-size:11px; font-weight:700; color:var(--gray-text); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">Financeiro</div>
+                <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:12px;">
+                  <span>💚 Em dia: <b style="color:var(--green);">${pagEmDia}</b></span>
+                  <span>🏆 Quitados: <b style="color:var(--navy);">${pagQuitado}</b></span>
+                  <span>🔴 Atrasado: <b style="color:var(--red);">${pagAtrasado}</b></span>
+                  <span>🟡 Pendente: <b>${pagPendente}</b></span>
+                </div>
+              </div>
+
+              <div style="border-top:1px solid var(--gray-border); padding-top:12px; margin-bottom:14px;">
+                <div style="font-size:11px; font-weight:700; color:var(--gray-text); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px;">Grupo do WhatsApp</div>
+                <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:12px;">
+                  <span>📱 No grupo: <b style="color:var(--green);">${noGrupo}</b></span>
+                  <span>🚫 Fora do grupo: <b style="color:var(--amber);">${foraGrupo}</b></span>
+                </div>
+              </div>
+
+              ${inadimplentes30.length > 0 ? `
+                <div style="background:#F5E0DE; border:1px solid #E0A8A2; border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--red); margin-bottom:4px;">🚩 Inadimplentes há mais de 30 dias (${inadimplentes30.length})</div>
+                  ${inadimplentes30.slice(0,4).map(a => {
+                    const d = Math.abs(diasAte(a.proximaParcela));
+                    return `<div style="font-size:12px; display:flex; justify-content:space-between; padding:3px 0;"><span>${a.nome}</span><span style="color:var(--red);font-weight:600;">${d}d</span></div>`;
+                  }).join("")}
+                  ${inadimplentes30.length > 4 ? `<div style="font-size:11px;color:var(--red);margin-top:4px;">+ ${inadimplentes30.length - 4} outro(s)</div>` : ""}
+                </div>
+              ` : ""}
+
+              ${parcelasVencendo.length > 0 ? `
+                <div style="background:var(--red-bg); border-radius:8px; padding:10px 12px; margin-bottom:12px;">
+                  <div style="font-size:11px; font-weight:700; color:var(--red); margin-bottom:4px;">💳 Parcelas vencendo em 7 dias</div>
+                  ${parcelasVencendo.slice(0,4).map(a => {
+                    const d = diasAte(a.proximaParcela);
+                    return `<div style="font-size:12px; display:flex; justify-content:space-between; padding:3px 0;"><span>${a.nome}</span><span style="color:var(--red);font-weight:600;">${d===0?"hoje":d+"d"}</span></div>`;
+                  }).join("")}
+                </div>
+              ` : ""}
+
+              ${encerrando.length > 0 ? `
+                <div style="background:var(--amber-bg); border-radius:8px; padding:10px 12px;">
+                  ${encerrando.slice(0,4).map(a => {
+                    const d = diasAte(a.dataFim);
+                    return `<div style="font-size:12px; display:flex; justify-content:space-between; padding:3px 0;"><span>${a.nome}</span><span style="color:var(--amber);font-weight:600;">${d===0?"hoje":d+"d"}</span></div>`;
+                  }).join("")}
+                </div>
+              ` : `<div style="font-size:12px;color:var(--gray-text);">Nenhum encerramento próximo.</div>`}
+            </div>
+          `;
+        }).join("") + `</div>`;
+    }
+
+    const recentBody = document.getElementById("dash-recent-body");
+    const recentes = [...alunosCache].slice(0,8);
+    recentBody.innerHTML = recentes.length ? recentes.map(a => `
+      <tr>
+        <td>${a.nome}</td>
+        <td>${a.curso || "—"}</td>
+        <td>${a.lancamento || "—"}</td>
+        <td>${fmtData(a.dataFim)}</td>
+        <td>${badgeStatus(a.status)}</td>
+      </tr>
+    `).join("") : `<tr><td colspan="5"><div class="empty-state">Nenhum aluno cadastrado ainda.</div></td></tr>`;
+  }
+
+  function faculdadeDe(a) {
+    if (a.canalVendas === "VOOMP") return "Anhanguera";
+    if (a.canalVendas) return "Sirius";
+    return "";
+  }
+
+  function badgeMatricula(statusMatricula) {
+    if (!statusMatricula) return `<span style="font-size:12px;color:var(--gray-text);">—</span>`;
+    const cls = (statusMatricula === "Matrícula efetivada" || statusMatricula === "Formado") ? "badge-ativo"
+      : statusMatricula === "Indeferida" ? "badge-cancelado"
+      : "badge-pendente";
+    return `<span class="badge ${cls}">${statusMatricula}</span>`;
+  }
+
+  function renderAlunos() {
+    const busca = document.getElementById("f-busca").value.toLowerCase();
+    const turma = document.getElementById("f-turma").value;
+    const lancamento = document.getElementById("f-lancamento").value;
+    const status = document.getElementById("f-status").value;
+    const curso = document.getElementById("f-curso").value;
+    const statusMatricula = document.getElementById("f-status-matricula").value;
+    const grupo = document.getElementById("f-grupo").value;
+    const faculdade = document.getElementById("f-faculdade").value;
+    const temMatricula = document.getElementById("f-tem-matricula").value;
+    const fotos = document.getElementById("f-fotos").value;
+    const formMv = document.getElementById("f-form-mv").value;
+
+    const filtrados = alunosCache.filter(a => {
+      if (busca) {
+        const alvo = [a.nome, a.email, a.cpf, a.celular, a.matriculaNumero].filter(Boolean).join(" ").toLowerCase();
+        const buscaLimpa = busca.replace(/[.\-\s()]/g, "");
+        const alvoLimpo = alvo.replace(/[.\-\s()]/g, "");
+        if (!alvo.includes(busca) && !alvoLimpo.includes(buscaLimpa)) return false;
+      }
+      if (turma && a.turma !== turma) return false;
+      if (lancamento && a.lancamento !== lancamento) return false;
+      if (status && a.status !== status) return false;
+      if (curso && a.curso !== curso) return false;
+      if (statusMatricula && a.statusMatricula !== statusMatricula) return false;
+      if (grupo && a.grupoWhats !== grupo) return false;
+      if (faculdade && faculdadeDe(a) !== faculdade) return false;
+      if (temMatricula === "com" && !a.matriculaNumero) return false;
+      if (temMatricula === "sem" && a.matriculaNumero) return false;
+      if (fotos && (a.fotos || "") !== fotos) return false;
+      if (formMv && (a.formMV || "") !== formMv) return false;
+      return true;
+    });
+
+    const body = document.getElementById("alunos-body");
+
+    const resumo = document.getElementById("alunos-resumo");
+    const semMatricula = filtrados.filter(a => !a.matriculaNumero).length;
+    const docPendente = filtrados.filter(a => a.statusMatricula === "Documentos não enviados").length;
+    const foraDoGrupo = filtrados.filter(a => a.status === "Ativo" && a.grupoWhats !== "No grupo").length;
+    const inadimplentes = filtrados.filter(isInadimplente30).length;
+    resumo.innerHTML = `
+      <span><strong style="color:var(--navy-2);">${filtrados.length}</strong> aluno(s) nesse filtro</span>
+      <span>·</span>
+      <span><strong style="color:var(--navy-2);">${semMatricula}</strong> sem matrícula</span>
+      <span>·</span>
+      <span><strong style="color:var(--navy-2);">${docPendente}</strong> com documentação pendente</span>
+      <span>·</span>
+      <span><strong style="color:var(--navy-2);">${foraDoGrupo}</strong> ativos fora do grupo do WhatsApp</span>
+      <span>·</span>
+      <span>🚩 <strong style="color:var(--navy-2);">${inadimplentes}</strong> inadimplente(s) 30+ dias</span>
+    `;
+
+    body.innerHTML = filtrados.length ? filtrados.map(a => {
+      const noGrupo = a.grupoWhats === "No grupo";
+      const grupoBadge = noGrupo
+        ? `<span class="badge badge-ativo">No grupo</span>`
+        : a.grupoWhats === "Removido"
+          ? `<span class="badge badge-cancelado">Removido</span>`
+          : `<span class="badge badge-inativo">${a.grupoWhats || "Não está no grupo"}</span>`;
+      return `
+      <tr>
+        <td style="font-size:12px;color:var(--gray-text);">${a.matriculaNumero || "—"}</td>
+        <td>
+          <span style="display:flex; align-items:center; gap:6px;">
+            ${isInadimplente30(a) ? '<span title="Inadimplente há mais de 30 dias">🚩</span>' : ''}${a.nome}
+            <button class="icon-btn" title="Copiar nome" data-copiar-nome="${(a.nome||"").replace(/"/g,'&quot;')}" style="font-size:12px;">📋</button>
+          </span>
+          <span style="display:flex; align-items:center; gap:6px; color:var(--gray-text);font-size:12px;">
+            ${a.email || ""}
+            ${a.email ? `<button class="icon-btn" title="Copiar e-mail" data-copiar-email="${a.email.replace(/"/g,'&quot;')}" style="font-size:12px;">📋</button>` : ""}
+          </span>
+        </td>
+        <td>
+          ${a.celular ? `<span style="display:flex; align-items:center; gap:6px; white-space:nowrap;">${a.celular}<button class="icon-btn" title="Copiar celular" data-copiar-cel="${a.celular.replace(/"/g,'&quot;')}" style="font-size:13px;">📋</button></span>` : "—"}
+        </td>
+        <td style="font-size:12px;color:var(--gray-text);">${faculdadeDe(a) || "—"}</td>
+        <td>${a.curso || "—"}</td>
+        <td>${a.turma || "—"}</td>
+        <td>${a.lancamento || "—"}</td>
+        <td>${fmtData(a.dataFim)}</td>
+        <td>${badgeStatus(a.status)}</td>
+        <td>${badgeMatricula(a.statusMatricula)}</td>
+        <td>${grupoBadge}</td>
+        <td style="font-size:12px;">${a.fotos || "—"}</td>
+        <td style="font-size:12px;">${a.formMV || "—"}</td>
+        <td style="font-size:12px;color:var(--gray-text); max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${(a.contratoObs || "").replace(/"/g,'&quot;')}">${a.contratoObs || "—"}</td>
+        <td style="font-size:11px;color:var(--gray-text); white-space:nowrap;">${fmtDataHora(a.atualizadoEm)}</td>
+        <td class="col-acoes">
+          <div class="row-actions">
+            ${!noGrupo ? `<button class="icon-btn" title="Marcar como no grupo" data-grupo="${a.id}">✓</button>` : ""}
+            <button class="icon-btn" title="Editar" data-edit="${a.id}">✎</button>
+            <button class="icon-btn" title="Excluir" data-del="${a.id}">🗑</button>
+          </div>
+        </td>
+      </tr>
+    `;
+    }).join("") : `<tr><td colspan="15"><div class="empty-state">Nenhum aluno encontrado com esses filtros.</div></td></tr>`;
+
+    body.querySelectorAll("[data-copiar-nome]").forEach(btn => btn.addEventListener("click", () => {
+      const nome = btn.dataset.copiarNome;
+      navigator.clipboard.writeText(nome).then(() => showToast("Nome copiado: " + nome)).catch(() => showToast("Não foi possível copiar."));
+    }));
+    body.querySelectorAll("[data-copiar-email]").forEach(btn => btn.addEventListener("click", () => {
+      const email = btn.dataset.copiarEmail;
+      navigator.clipboard.writeText(email).then(() => showToast("E-mail copiado: " + email)).catch(() => showToast("Não foi possível copiar."));
+    }));
+    body.querySelectorAll("[data-copiar-cel]").forEach(btn => btn.addEventListener("click", () => {
+      const numero = btn.dataset.copiarCel;
+      navigator.clipboard.writeText(numero).then(() => showToast("Celular copiado: " + numero)).catch(() => showToast("Não foi possível copiar."));
+    }));
+
+    body.querySelectorAll("[data-edit]").forEach(btn => btn.addEventListener("click", () => {
+      const aluno = alunosCache.find(a => a.id === btn.dataset.edit);
+      openModal(aluno);
+    }));
+    body.querySelectorAll("[data-del]").forEach(btn => btn.addEventListener("click", () => excluirAluno(btn.dataset.del)));
+    body.querySelectorAll("[data-grupo]").forEach(btn => btn.addEventListener("click", () => marcarNoGrupo(btn.dataset.grupo)));
+  }
+
+  async function marcarNoGrupo(id) {
+    try {
+      await updateDoc(doc(db, "alunos", id), { grupoWhats: "No grupo", atualizadoEm: Date.now() });
+      showToast("Aluno marcado como no grupo do WhatsApp");
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao atualizar.");
+    }
+  }
+
+  ["f-busca","f-turma","f-lancamento","f-status","f-curso","f-status-matricula","f-grupo","f-faculdade","f-tem-matricula","f-fotos","f-form-mv"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", renderAlunos);
+  });
+
+  // ---------- DUPLICADOS ----------
+  function normCpf(v) {
+    const digits = (v || "").replace(/\D/g, "");
+    return digits.replace(/^0+/, "") || digits;
+  }
+
+  function encontrarDuplicados() {
+    const grupos = {};
+    alunosCache.forEach(a => {
+      const cpf = normCpf(a.cpf);
+      if (!cpf) return;
+      const chave = cpf + "|" + (a.curso || "");
+      (grupos[chave] = grupos[chave] || []).push(a);
+    });
+    return Object.values(grupos).filter(g => g.length > 1);
+  }
+
+  function mesclarCampos(grupo) {
+    const ordenado = [...grupo].sort((a, b) => (b.dataInicio || "").localeCompare(a.dataInicio || ""));
+    const merged = {};
+    const camposTodos = new Set();
+    grupo.forEach(a => Object.keys(a).forEach(k => camposTodos.add(k)));
+    camposTodos.forEach(campo => {
+      if (campo === "id") return;
+      let valorEscolhido = "";
+      for (const a of ordenado) {
+        const v = a[campo];
+        if (v !== undefined && v !== null && v !== "") { valorEscolhido = v; break; }
+      }
+      merged[campo] = valorEscolhido;
+    });
+    return { merged, sobrevivente: ordenado[0], excluir: ordenado.slice(1) };
+  }
+
+  document.getElementById("btn-verificar-dup").addEventListener("click", () => {
+    const grupos = encontrarDuplicados();
+    const container = document.getElementById("dup-resultado");
+    if (!grupos.length) {
+      container.innerHTML = `<div class="empty-state">Nenhum duplicado encontrado. 🎉</div>`;
+      return;
+    }
+    container.innerHTML = grupos.map((g, gi) => {
+      const { merged } = mesclarCampos(g);
+      return `
+        <div style="background:var(--white); border:1px solid var(--gray-border); border-radius:10px; padding:18px 20px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div>
+              <strong>${merged.nome}</strong>
+              <span style="color:var(--gray-text); font-size:12px;"> — ${merged.curso} — ${g.length} registros</span>
+            </div>
+            <button class="btn btn-sm btn-primary" data-merge="${gi}">Mesclar e excluir</button>
+          </div>
+          <table style="width:100%; font-size:12px;">
+            <tr style="color:var(--gray-text);"><td></td>${g.map(a=>`<td style="padding:2px 8px;">${a.email}</td>`).join("")}</tr>
+            <tr><td style="color:var(--gray-text);">Status</td>${g.map(a=>`<td>${a.status||"—"}</td>`).join("")}</tr>
+            <tr><td style="color:var(--gray-text);">Pagamento</td>${g.map(a=>`<td>${a.statusPagamento||"—"}</td>`).join("")}</tr>
+            <tr><td style="color:var(--gray-text);">Parcelas</td>${g.map(a=>`<td>${a.parcelasPagas||0}/${a.totalParcelas||0}</td>`).join("")}</tr>
+            <tr><td style="color:var(--gray-text);">Data compra</td>${g.map(a=>`<td>${fmtData(a.dataInicio)}</td>`).join("")}</tr>
+          </table>
+          <div style="font-size:11px; color:var(--gray-text); margin-top:8px;">
+            Resultado da mesclagem: status=${merged.status}, pagamento=${merged.statusPagamento}, parcelas=${merged.parcelasPagas}/${merged.totalParcelas}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    container.querySelectorAll("[data-merge]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const grupo = grupos[Number(btn.dataset.merge)];
+        const { merged, sobrevivente, excluir } = mesclarCampos(grupo);
+        if (!confirm(`Mesclar ${grupo.length} registros de ${merged.nome}? Isso vai excluir ${excluir.length} registro(s) duplicado(s).`)) return;
+        try {
+          const dadosSalvar = { ...merged };
+          delete dadosSalvar.id;
+          dadosSalvar.atualizadoEm = Date.now();
+          Object.keys(dadosSalvar).forEach(k => {
+            if (dadosSalvar[k] === undefined || dadosSalvar[k] === null) dadosSalvar[k] = "";
+          });
+          await updateDoc(doc(db, "alunos", sobrevivente.id), dadosSalvar);
+          for (const ex of excluir) {
+            await deleteDoc(doc(db, "alunos", ex.id));
+          }
+          showToast(`${merged.nome} mesclado com sucesso`);
+          document.getElementById("btn-verificar-dup").click();
+        } catch (err) {
+          console.error(err);
+          showToast("Erro ao mesclar: " + (err?.message || err));
+        }
+      });
+    });
+  });
+  function parseCSV(text) {
+    // Parser RFC4180: respeita aspas, inclusive quebras de linha DENTRO de campos entre aspas.
+    const rows = [];
+    let row = [];
+    let field = "";
+    let inQuotes = false;
+    let i = 0;
+    const len = text.length;
+    while (i < len) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      } else {
+        if (c === '"') { inQuotes = true; i++; continue; }
+        if (c === ",") { row.push(field); field = ""; i++; continue; }
+        if (c === "\r") { i++; continue; }
+        if (c === "\n") {
+          row.push(field); field = "";
+          rows.push(row); row = [];
+          i++; continue;
+        }
+        field += c; i++; continue;
+      }
+    }
+    if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+    const nonEmpty = rows.filter(r => !(r.length === 1 && r[0].trim() === ""));
+    if (!nonEmpty.length) return [];
+    const headers = nonEmpty[0].map(h => h.trim());
+    return nonEmpty.slice(1).map(vals => {
+      const obj = {};
+      headers.forEach((h, idx) => obj[h] = (vals[idx] || "").trim());
+      return obj;
+    });
+  }
+
+  document.getElementById("btn-importar-csv").addEventListener("click", () => {
+    document.getElementById("input-csv").click();
+  });
+
+  document.getElementById("btn-exportar-csv").addEventListener("click", () => {
+    if (!alunosCache.length) { showToast("Nenhum aluno para exportar"); return; }
+    const cols = ["nome","email","celular","cpf","matriculaNumero","turma","lancamento","curso","dataInicio","dataEfetivacao","dataFim","canalVendas","status","statusMatricula","grupoWhats","fotos","formMV","contratoObs","formaPagamento","totalParcelas","parcelasPagas","proximaParcela","statusPagamento"];
+    const escapeCsv = (v) => {
+      const s = (v ?? "").toString();
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    };
+    const linhas = [cols.join(",")].concat(
+      alunosCache.map(a => cols.map(c => escapeCsv(a[c])).join(","))
+    );
+    const blob = new Blob([linhas.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `kaleizu_backup_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Backup exportado");
+  });
+
+  document.getElementById("input-csv").addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const rows = parseCSV(text);
+    if (!rows.length) { showToast("Arquivo vazio ou inválido"); return; }
+
+    // --- Verificação automática de possíveis duplicados por CPF ---
+    const cpfIndexExistente = {};
+    alunosCache.forEach(a => {
+      const c = normCpf(a.cpf);
+      if (c) (cpfIndexExistente[c] = cpfIndexExistente[c] || []).push(a);
+    });
+    const avisos = [];
+    rows.forEach(r => {
+      const c = normCpf(r.cpf);
+      if (!c) return;
+      const emailRow = (r.email || "").trim().toLowerCase();
+      const existentes = cpfIndexExistente[c] || [];
+      const conflita = existentes.find(a => (a.email || "").trim().toLowerCase() !== emailRow && a.curso === r.curso);
+      if (conflita) avisos.push({ novo: r.nome, existente: conflita.nome, curso: r.curso });
+    });
+    if (avisos.length) {
+      const lista = avisos.slice(0, 10).map(a => `• ${a.novo} — CPF já usado por "${a.existente}" (${a.curso}), com e-mail diferente`).join("\n");
+      const prosseguir = confirm(
+        `⚠ ${avisos.length} possível(is) duplicado(s) detectado(s) por CPF antes de importar:\n\n${lista}${avisos.length > 10 ? "\n..." : ""}\n\n` +
+        `Isso pode criar um cadastro duplicado da mesma pessoa. Deseja importar mesmo assim?\n(Você pode revisar depois na aba Duplicados)`
+      );
+      if (!prosseguir) { e.target.value = ""; return; }
+    }
+
+    const modal = document.getElementById("modal-import");
+    const bar = document.getElementById("import-bar");
+    const statusEl = document.getElementById("import-status");
+    const closeBtn = document.getElementById("import-close");
+    document.getElementById("import-title").textContent = "Importando alunos...";
+    closeBtn.style.display = "none";
+    modal.classList.add("open");
+
+    const somenteAtualizar = document.getElementById("chk-somente-atualizar").checked;
+    // Colunas que vieram no CSV importado. Campos que NÃO estiverem aqui não são
+    // tocados nos cadastros existentes (evita apagar dados que a planilha não trouxe).
+    const colunasCsv = new Set(rows.length ? Object.keys(rows[0]) : []);
+    const BATCH_SIZE = 400;
+    let imported = 0;
+    let updated = 0;
+    let created = 0;
+    let ignorados = 0;
+    const emailIndex = new Map(
+      alunosCache.filter(a => a.email).map(a => [a.email.trim().toLowerCase(), a.id])
+    );
+    const cpfIndex = new Map(
+      alunosCache.filter(a => normCpf(a.cpf)).map(a => [normCpf(a.cpf), a.id])
+    );
+    try {
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const chunk = rows.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach(r => {
+          if (!r.nome) return;
+          const emailKey = (r.email || "").trim().toLowerCase();
+          const cpfKey = normCpf(r.cpf);
+          // Casa primeiro por CPF (mais confiável), depois por e-mail.
+          const existingId = (cpfKey && cpfIndex.get(cpfKey)) || (emailKey && emailIndex.get(emailKey)) || null;
+
+          if (!existingId && somenteAtualizar) { ignorados++; return; }
+
+          let totalParcelas = 0, parcelasPagas = 0;
+          if (r.parcelas && r.parcelas.includes("/")) {
+            const [p, t] = r.parcelas.split("/");
+            parcelasPagas = Number(p) || 0;
+            totalParcelas = Number(t) || 0;
+          } else if (r.parcelas && !isNaN(Number(r.parcelas))) {
+            totalParcelas = Number(r.parcelas);
+            parcelasPagas = Number(r.parcelas);
+          }
+
+          // Só entram no payload os campos cuja coluna existia no CSV importado.
+          // Assim, uma planilha parcial (ex: só matrícula e datas) nunca apaga
+          // turma, curso, financeiro etc. de um cadastro já existente.
+          const set = (key, value) => { if (colunasCsv.has(key)) data[key] = value; };
+          const data = {};
+          set("nome", r.nome || "");
+          set("email", r.email || "");
+          set("celular", r.celular || "");
+          set("cpf", r.cpf || "");
+          set("matriculaNumero", r.matriculaNumero || "");
+          set("turma", r.turma || "T1");
+          set("lancamento", r.lancamento || "");
+          set("curso", r.curso || "");
+          set("dataInicio", r.dataInicio || "");
+          set("dataEfetivacao", r.dataEfetivacao || "");
+          set("dataFim", r.dataFim || "");
+          set("canalVendas", r.canalVendas || "");
+          set("status", r.status || "Ativo");
+          set("statusMatricula", r.statusMatricula || "");
+          set("grupoWhats", r.grupoWhats || "");
+          set("fotos", r.fotos || "");
+          set("formMV", r.formMV || "");
+          set("contratoObs", r.contratoObs || "");
+          set("formaPagamento", r.formaPagamento || "");
+          if (colunasCsv.has("totalParcelas") || colunasCsv.has("parcelasPagas") || colunasCsv.has("parcelas")) {
+            data.totalParcelas = r.totalParcelas ? Number(r.totalParcelas) : totalParcelas;
+            data.parcelasPagas = r.parcelasPagas ? Number(r.parcelasPagas) : parcelasPagas;
+          }
+          set("proximaParcela", r.proximaParcela || "");
+          set("statusPagamento", r.statusPagamento || "");
+          data.atualizadoEm = Date.now();
+
+          if (existingId) {
+            batch.set(doc(db, "alunos", existingId), data, { merge: true });
+            updated++;
+          } else {
+            const ref = doc(collection(db, "alunos"));
+            batch.set(ref, { ...data, criadoEm: Date.now() });
+            if (emailKey) emailIndex.set(emailKey, ref.id);
+            if (cpfKey) cpfIndex.set(cpfKey, ref.id);
+            created++;
+          }
+        });
+        await batch.commit();
+        imported += chunk.length;
+        const pct = Math.round((imported / rows.length) * 100);
+        bar.style.width = pct + "%";
+        statusEl.textContent = `${imported} de ${rows.length} processados...`;
+      }
+      document.getElementById("import-title").textContent = "Importação concluída";
+      statusEl.textContent = `${created} novos cadastrados, ${updated} atualizados (sem duplicar)` +
+        (ignorados ? `, ${ignorados} ignorados (sem CPF/e-mail correspondente)` : "") + ".";
+    } catch (err) {
+      console.error(err);
+      document.getElementById("import-title").textContent = "Erro na importação";
+      statusEl.textContent = "Veja o console do navegador (F12) para detalhes.";
+    }
+    closeBtn.style.display = "inline-flex";
+    e.target.value = "";
+  });
+
+  document.getElementById("import-close").addEventListener("click", () => {
+    document.getElementById("modal-import").classList.remove("open");
+  });
+
+  function renderFinanceiro() {
+    const busca = document.getElementById("f-busca-fin").value.toLowerCase();
+    const statusFin = document.getElementById("f-status-fin").value;
+    const cursoFin = document.getElementById("f-curso-fin").value;
+    const turmaFin = document.getElementById("f-turma-fin").value;
+    const lancamentoFin = document.getElementById("f-lancamento-fin").value;
+    const pagamentoFin = document.getElementById("f-pagamento-fin").value;
+    const plataformaFin = document.getElementById("f-plataforma-fin").value;
+
+    const filtrados = alunosCache.filter(a => {
+      if (a.status !== "Ativo") return false;
+      if (busca && !a.nome?.toLowerCase().includes(busca)) return false;
+      if (cursoFin && a.curso !== cursoFin) return false;
+      if (turmaFin && a.turma !== turmaFin) return false;
+      if (lancamentoFin && a.lancamento !== lancamentoFin) return false;
+      if (pagamentoFin && a.formaPagamento !== pagamentoFin) return false;
+      if (plataformaFin && a.canalVendas !== plataformaFin) return false;
+      if (statusFin) {
+        if (statusFin === "inadimplente30") {
+          if (!isInadimplente30(a)) return false;
+        } else {
+          const efetivo = a.statusPagamento || "Pendente";
+          if (efetivo !== statusFin) return false;
+        }
+      }
+      return true;
+    });
+
+    const finBadge = (s) => {
+      const efetivo = s || "Pendente";
+      const cls = efetivo === "Em dia" || efetivo === "Concluído" ? "badge-ativo" : efetivo === "Atrasado" ? "badge-cancelado" : "badge-inativo";
+      return `<span class="badge ${cls}">${efetivo}</span>`;
+    };
+
+    const body = document.getElementById("fin-body");
+    body.innerHTML = filtrados.length ? filtrados.map(a => {
+      const total = a.totalParcelas || 0;
+      const pagas = a.parcelasPagas || 0;
+      const quitado = total > 0 && pagas >= total;
+      return `
+      <tr>
+        <td>
+          <span style="display:flex; align-items:center; gap:6px;">
+            ${isInadimplente30(a) ? '<span title="Inadimplente há mais de 30 dias">🚩</span>' : ''}${a.nome}
+            <button class="icon-btn" title="Copiar nome" data-copiar-nome="${(a.nome||"").replace(/"/g,'&quot;')}" style="font-size:13px;">📋</button>
+          </span>
+        </td>
+        <td>
+          ${a.email ? `<span style="display:flex; align-items:center; gap:6px; white-space:nowrap;">${a.email}<button class="icon-btn" title="Copiar e-mail" data-copiar-email="${a.email.replace(/"/g,'&quot;')}" style="font-size:13px;">📋</button></span>` : "—"}
+        </td>
+        <td>${a.curso || "—"}</td>
+        <td>
+          ${a.celular ? `<span style="display:flex; align-items:center; gap:6px;">${a.celular}<button class="icon-btn" title="Copiar celular" data-copiar-cel="${a.celular.replace(/"/g,'&quot;')}" style="font-size:13px;">📋</button></span>` : "—"}
+        </td>
+        <td style="font-size:12px;color:var(--gray-text);">${a.canalVendas || "—"}</td>
+        <td>${a.formaPagamento || "—"}</td>
+        <td>${total ? `${pagas}/${total}` : "—"}</td>
+        <td>${quitado ? "—" : fmtData(a.proximaParcela)}</td>
+        <td>${finBadge(a.statusPagamento)}</td>
+        <td class="col-acoes">
+          <div class="row-actions">
+            ${!quitado ? `<button class="icon-btn" title="Registrar pagamento" data-pagar="${a.id}">✓</button>` : ""}
+            <button class="icon-btn" title="Editar" data-editfin="${a.id}">✎</button>
+          </div>
+        </td>
+      </tr>
+    `;
+    }).join("") : `<tr><td colspan="10"><div class="empty-state">Nenhum registro encontrado.</div></td></tr>`;
+
+    body.querySelectorAll("[data-copiar-nome]").forEach(btn => btn.addEventListener("click", () => {
+      const nome = btn.dataset.copiarNome;
+      navigator.clipboard.writeText(nome).then(() => showToast("Nome copiado: " + nome)).catch(() => showToast("Não foi possível copiar."));
+    }));
+    body.querySelectorAll("[data-copiar-email]").forEach(btn => btn.addEventListener("click", () => {
+      const email = btn.dataset.copiarEmail;
+      navigator.clipboard.writeText(email).then(() => showToast("E-mail copiado: " + email)).catch(() => showToast("Não foi possível copiar."));
+    }));
+
+    body.querySelectorAll("[data-copiar-cel]").forEach(btn => btn.addEventListener("click", () => {
+      const numero = btn.dataset.copiarCel;
+      navigator.clipboard.writeText(numero).then(() => showToast("Celular copiado: " + numero)).catch(() => showToast("Não foi possível copiar."));
+    }));
+
+    body.querySelectorAll("[data-editfin]").forEach(btn => btn.addEventListener("click", () => {
+      const aluno = alunosCache.find(a => a.id === btn.dataset.editfin);
+      openModal(aluno);
+    }));
+    body.querySelectorAll("[data-pagar]").forEach(btn => btn.addEventListener("click", () => registrarPagamento(btn.dataset.pagar)));
+  }
+
+  async function registrarPagamento(id) {
+    const aluno = alunosCache.find(a => a.id === id);
+    if (!aluno) return;
+    let total = aluno.totalParcelas || 0;
+    if (total <= 0) {
+      const resposta = prompt(`Esse aluno ainda não tem o total de parcelas definido.\nQuantas parcelas tem o plano de ${aluno.nome}?`, "12");
+      if (!resposta) return;
+      total = Number(resposta);
+      if (!total || total <= 0) { showToast("Número inválido."); return; }
+    }
+    const novasPagas = Math.min((aluno.parcelasPagas || 0) + 1, total);
+    let novaProxima = "";
+    if (novasPagas < total) {
+      const base = aluno.proximaParcela ? new Date(aluno.proximaParcela + "T00:00:00") : new Date();
+      base.setMonth(base.getMonth() + 1);
+      novaProxima = base.toISOString().slice(0,10);
+    }
+    const novoStatus = novasPagas >= total ? "Concluído" : "Em dia";
+    try {
+      await updateDoc(doc(db, "alunos", id), {
+        totalParcelas: total,
+        parcelasPagas: novasPagas,
+        proximaParcela: novaProxima,
+        statusPagamento: novoStatus,
+        atualizadoEm: Date.now(),
+      });
+      showToast(novasPagas >= total ? "Parcelas quitadas!" : `Parcela registrada (${novasPagas}/${total})`);
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao registrar pagamento.");
+    }
+  }
+
+  ["f-busca-fin","f-status-fin","f-curso-fin","f-turma-fin","f-lancamento-fin","f-pagamento-fin","f-plataforma-fin"].forEach(id => document.getElementById(id).addEventListener("input", renderFinanceiro));
+
+</script>
+</body>
+</html>
