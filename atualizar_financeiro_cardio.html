@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Kaleizu — Atualizar financeiro Cardio</title>
+<style>
+  :root{ --navy:#0D1B2E; --red:#B3261E; --gray-border:#E4E0D4; --cream:#FBFAF6; }
+  body{ font-family: -apple-system, Segoe UI, Arial, sans-serif; background:var(--cream); color:#222; margin:0; padding:30px; }
+  .wrap{ max-width:960px; margin:0 auto; }
+  h1{ color:var(--navy); font-size:20px; }
+  p.sub{ color:#666; font-size:13px; margin-top:-8px; }
+  .card{ background:#fff; border:1px solid var(--gray-border); border-radius:10px; padding:22px; margin-bottom:18px; }
+  button{ background:var(--navy); color:#fff; border:none; padding:10px 16px; border-radius:7px; font-size:13px; cursor:pointer; }
+  button:disabled{ opacity:.5; cursor:not-allowed; }
+  input[type=text]{ padding:8px 10px; border-radius:7px; border:1px solid var(--gray-border); font-size:13px; }
+  table{ width:100%; border-collapse:collapse; font-size:12px; margin-top:14px; }
+  th, td{ text-align:left; padding:6px 8px; border-bottom:1px solid var(--gray-border); }
+  th{ background:var(--cream); }
+  .status{ font-size:13px; margin-top:10px; }
+  #login-screen{ text-align:center; padding:60px 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="login-screen">
+    <h1>Kaleizu — Atualizar financeiro Cardio</h1>
+    <p class="sub">Entre com a mesma conta Google usada no sistema de alunos.</p>
+    <button id="btn-login">Entrar com Google</button>
+    <p id="login-error" style="display:none; color:var(--red); font-size:13px;">Este e-mail não tem acesso ao sistema.</p>
+  </div>
+
+  <div id="app" style="display:none;">
+    <h1>Atualizar financeiro (registro de Cardio)</h1>
+    <p class="sub">Logado como <span id="user-email"></span> — <a href="#" id="btn-logout">sair</a></p>
+    <div class="card">
+      <button id="btn-carregar">Conferir os 4 registros antes de atualizar</button>
+      <div class="status" id="status-carregar"></div>
+    </div>
+    <div class="card" id="card-resultado" style="display:none;">
+      <div id="resumo" style="font-weight:600;"></div>
+      <table id="tabela-preview"></table>
+      <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--gray-border);">
+        <label style="font-size:13px; display:block; margin-bottom:6px;">Digite <strong>ATUALIZAR</strong> para confirmar:</label>
+        <input type="text" id="confirm-text" placeholder="ATUALIZAR">
+        <button id="btn-atualizar" disabled style="margin-left:8px;">Atualizar financeiro</button>
+      </div>
+      <div class="status" id="status-atualizar"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFirestore, collection, doc, getDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyASQBvvsLhIDt0096Ndl1CaAvpFois0RDY",
+    authDomain: "kaleizu-alunos.firebaseapp.com",
+    projectId: "kaleizu-alunos",
+    storageBucket: "kaleizu-alunos.firebasestorage.app",
+    messagingSenderId: "307510605542",
+    appId: "1:307510605542:web:1a11d1a16dd174c07ced27"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+
+  const ATUALIZACOES = [
+    { email: "fernando@aizza.com.br", curso: "Pós Cardio", statusPagamento: "Em dia", totalParcelas: 18, parcelasPagas: 10, proximaParcela: "2026-09-06" },
+    { email: "veterinariajasmimarcanjo@gmail.com", curso: "Pós Cardio", statusPagamento: "Atrasado", totalParcelas: 18, parcelasPagas: 6, proximaParcela: "2026-06-01" },
+    { email: "hfreitas@icb.usp.br", curso: "Pós Cardio", statusPagamento: "Em dia", totalParcelas: 12, parcelasPagas: 5, proximaParcela: "2026-09-17" },
+    { email: "carolinasbaraini@gmail.com", curso: "Pós Cardio", statusPagamento: "Em dia", totalParcelas: 21, parcelasPagas: 3, proximaParcela: "2026-09-20" },
+  ];
+
+  let candidatos = [];
+
+  document.getElementById("btn-login").addEventListener("click", async () => {
+    try { await signInWithPopup(auth, provider); } catch (e) { console.error(e); }
+  });
+  document.getElementById("btn-logout").addEventListener("click", (e) => { e.preventDefault(); signOut(auth); });
+
+  onAuthStateChanged(auth, async (user) => {
+    const loginErr = document.getElementById("login-error");
+    loginErr.style.display = "none";
+    if (!user) {
+      document.getElementById("login-screen").style.display = "block";
+      document.getElementById("app").style.display = "none";
+      return;
+    }
+    try {
+      const authDoc = await getDoc(doc(db, "usuarios_autorizados", user.email));
+      if (!authDoc.exists()) { loginErr.style.display = "block"; await signOut(auth); return; }
+    } catch (e) { console.error(e); }
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    document.getElementById("user-email").textContent = user.email;
+  });
+
+  document.getElementById("btn-carregar").addEventListener("click", async () => {
+    const statusEl = document.getElementById("status-carregar");
+    statusEl.textContent = "Carregando alunos...";
+    document.getElementById("card-resultado").style.display = "none";
+    try {
+      const snap = await getDocs(collection(db, "alunos"));
+      const todos = [];
+      snap.forEach(d => todos.push({ id: d.id, ...d.data() }));
+
+      candidatos = [];
+      const naoEncontrados = [];
+      for (const a of ATUALIZACOES) {
+        const match = todos.find(x => (x.email || "").trim().toLowerCase() === a.email && x.curso === a.curso);
+        if (match) {
+          candidatos.push({ id: match.id, nome: match.nome, ...a });
+        } else {
+          naoEncontrados.push(a.email);
+        }
+      }
+      let msg = `${candidatos.length} de ${ATUALIZACOES.length} registros encontrados.`;
+      if (naoEncontrados.length) msg += ` Não encontrados: ${naoEncontrados.join(", ")}`;
+      statusEl.textContent = msg;
+      renderResultado();
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Erro: " + e.message;
+    }
+  });
+
+  function renderResultado() {
+    const card = document.getElementById("card-resultado");
+    const resumo = document.getElementById("resumo");
+    const tabela = document.getElementById("tabela-preview");
+    card.style.display = "block";
+    if (!candidatos.length) {
+      resumo.textContent = "Nenhum registro pra atualizar.";
+      tabela.innerHTML = "";
+      document.getElementById("btn-atualizar").disabled = true;
+      return;
+    }
+    resumo.textContent = `${candidatos.length} registro(s) de Cardio terão o financeiro atualizado:`;
+    tabela.innerHTML = "<tr><th>Nome</th><th>Status pagamento</th><th>Parcelas</th><th>Próxima parcela</th></tr>" +
+      candidatos.map(c => `<tr><td>${c.nome}</td><td>${c.statusPagamento}</td><td>${c.parcelasPagas}/${c.totalParcelas}</td><td>${c.proximaParcela}</td></tr>`).join("");
+  }
+
+  document.getElementById("confirm-text").addEventListener("input", (e) => {
+    document.getElementById("btn-atualizar").disabled = e.target.value.trim() !== "ATUALIZAR" || !candidatos.length;
+  });
+
+  document.getElementById("btn-atualizar").addEventListener("click", async () => {
+    const statusEl = document.getElementById("status-atualizar");
+    document.getElementById("btn-atualizar").disabled = true;
+    try {
+      const batch = writeBatch(db);
+      candidatos.forEach(c => {
+        batch.update(doc(db, "alunos", c.id), {
+          statusPagamento: c.statusPagamento,
+          totalParcelas: c.totalParcelas,
+          parcelasPagas: c.parcelasPagas,
+          proximaParcela: c.proximaParcela,
+          atualizadoEm: Date.now(),
+        });
+      });
+      await batch.commit();
+      statusEl.textContent = `✅ ${candidatos.length} registro(s) atualizado(s).`;
+      candidatos = [];
+      renderResultado();
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = "Erro: " + e.message;
+    }
+  });
+</script>
+</body>
+</html>
